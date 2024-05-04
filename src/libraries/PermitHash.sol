@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import {IAllowanceTransfer} from "../interfaces/IAllowanceTransfer.sol";
 import {ISignatureTransfer} from "../interfaces/ISignatureTransfer.sol";
+import {IERC20Subscription} from "../interfaces/IERC20Subscription.sol";
 
 library PermitHash {
     bytes32 public constant _PERMIT_DETAILS_TYPEHASH =
@@ -52,6 +53,15 @@ library PermitHash {
                 keccak256(abi.encodePacked(permitHashes)),
                 permitBatch.spender,
                 permitBatch.sigDeadline
+            )
+        );
+    }
+
+    function hash(IERC20Subscription.PermitTransferFrom memory permit) internal view returns (bytes32) {
+        bytes32 tokenPermissionsHash = _hashTokenPermissions(permit.permitted);
+        return keccak256(
+            abi.encode(
+                _PERMIT_TRANSFER_FROM_TYPEHASH, tokenPermissionsHash, msg.sender, permit.salt, permit.timeInterval
             )
         );
     }
@@ -125,6 +135,14 @@ library PermitHash {
     }
 
     function _hashTokenPermissions(ISignatureTransfer.TokenPermissions memory permitted)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permitted));
+    }
+
+    function _hashTokenPermissions(IERC20Subscription.TokenPermissions memory permitted)
         private
         pure
         returns (bytes32)
