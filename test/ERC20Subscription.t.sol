@@ -98,9 +98,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
     // tests that collectPayment can be called with right transfers after cooldown has passed
     // NOT COVERING MAX UNIT256, since warp argument will overflow
     function test_CollectPaymentAfterCooldownPassed(uint256 cooldownTime) public {
-        if (cooldownTime == UINT256_MAX) {
-            return;
-        }
+        vm.assume(cooldownTime < type(uint256).max);
 
         uint256 salt = 0;
         IERC20Subscription.PermitTransferFrom memory permit =
@@ -129,9 +127,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
     // tests that collecyPayment cannot be called until cooldown has passed
     // NOT COVERING 0, since warp argument will underflow
     function testFail_CollectPaymentBeforeCooldownPassed(uint256 cooldownTime) public {
-        if (cooldownTime == 0) {
-            revert("cooldown time is 0");
-        }
+        vm.assume(cooldownTime > 0);
 
         uint256 salt = 0;
         IERC20Subscription.PermitTransferFrom memory permit =
@@ -140,9 +136,6 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
         IERC20Subscription.Subscription memory subscription =
             IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
-
-        uint256 startBalanceFrom = token0.balanceOf(from);
-        uint256 startBalanceTo = token0.balanceOf(address2);
 
         vm.warp(1641070800);
         erc20Subscription.collectPayment(subscription);
@@ -161,9 +154,6 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
         IERC20Subscription.Subscription memory subscription =
             IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
-
-        uint256 startBalanceFrom = token0.balanceOf(from);
-        uint256 startBalanceTo = token0.balanceOf(address2);
 
         vm.warp(1641070800);
         erc20Subscription.collectPayment(subscription);
@@ -184,13 +174,72 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.Subscription memory subscription =
             IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
 
-        uint256 startBalanceFrom = token0.balanceOf(from);
-        uint256 startBalanceTo = token0.balanceOf(address2);
-
         vm.warp(initialBlockTime);
         erc20Subscription.collectPayment(subscription);
 
         // now cooldownTime + initialBlockTime will overlow uint256 by 1 and next call should fail with arithmetic error
         erc20Subscription.collectPayment(subscription);
+    }
+
+    function test_IncorrectSigLength() public {
+        uint256 cooldownTime = 0;
+        uint256 salt = 0;
+        IERC20Subscription.PermitTransferFrom memory permit =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
+        bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        bytes memory sigExtra = bytes.concat(sig, bytes1(uint8(0)));
+
+        assertEq(sigExtra.length, 66);
+
+        IERC20Subscription.Subscription memory subscription =
+            IERC20Subscription.Subscription({owner: from, signature: sigExtra, permit: permit});
+
+        vm.expectRevert(SignatureVerification.InvalidSignatureLength.selector);
+        erc20Subscription.collectPayment(subscription);
+    }
+
+    function test_GasCollectPaymentFirst() public {
+        uint256 salt = 0;
+        uint256 cooldownTime = 0;
+        IERC20Subscription.PermitTransferFrom memory permit =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
+        bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        IERC20Subscription.Subscription memory subscription =
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+
+        uint256 startBalanceFrom = token0.balanceOf(from);
+        uint256 startBalanceTo = token0.balanceOf(address2);
+
+        snapStart("collectPaymentFirst");
+        erc20Subscription.collectPayment(subscription);
+        snapEnd();
+
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
+        assertEq(token0.balanceOf(address2), startBalanceTo + defaultAmount);
+    }
+
+    function test_GasCollectPaymentSecond() public {
+        uint256 salt = 0;
+        uint256 cooldownTime = 0;
+        IERC20Subscription.PermitTransferFrom memory permit =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
+        bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        IERC20Subscription.Subscription memory subscription =
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+
+        uint256 startBalanceFrom = token0.balanceOf(from);
+        uint256 startBalanceTo = token0.balanceOf(address2);
+
+        erc20Subscription.collectPayment(subscription);
+
+        snapStart("collectPaymentSecond");
+        erc20Subscription.collectPayment(subscription);
+        snapEnd();
+
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount - defaultAmount);
+        assertEq(token0.balanceOf(address2), startBalanceTo + defaultAmount + defaultAmount);
     }
 }
