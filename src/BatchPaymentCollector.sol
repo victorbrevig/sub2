@@ -18,8 +18,8 @@ contract BatchPaymentCollector is IBatchPaymentCollector {
             catch (bytes memory revertData) {
                 emit FailedPayment(
                     _subscriptions[i].owner,
-                    _subscriptions[i].transferDetails.to,
-                    _subscriptions[i].transferDetails.requestedAmount,
+                    _subscriptions[i].permit.permitted.to,
+                    _subscriptions[i].permit.permitted.amount,
                     _subscriptions[i].permit.permitted.token,
                     revertData
                 );

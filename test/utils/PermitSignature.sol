@@ -24,8 +24,15 @@ contract PermitSignature {
 
     bytes32 public constant _TOKEN_PERMISSIONS_TYPEHASH = keccak256("TokenPermissions(address token,uint256 amount)");
 
+    bytes32 public constant _TOKEN_PERMISSIONS_ERC20SUBSCRIPTION_TYPEHASH =
+        keccak256("TokenPermissions(address token,uint256 amount,address to)");
+
     bytes32 public constant _PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
         "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
+    );
+
+    bytes32 public constant _PERMIT_TRANSFER_FROM_ERC20SUBSCRIPTION_TYPEHASH = keccak256(
+        "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 salt,uint256 cooldownTime)TokenPermissions(address token,uint256 amount,address to)"
     );
 
     bytes32 public constant _PERMIT_BATCH_TRANSFER_FROM_TYPEHASH = keccak256(
@@ -159,18 +166,19 @@ contract PermitSignature {
         uint256 privateKey,
         bytes32 domainSeparator
     ) internal view returns (bytes memory sig) {
-        bytes32 tokenPermissions = keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permit.permitted));
+        bytes32 tokenPermissions =
+            keccak256(abi.encode(_TOKEN_PERMISSIONS_ERC20SUBSCRIPTION_TYPEHASH, permit.permitted));
         bytes32 msgHash = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 domainSeparator,
                 keccak256(
                     abi.encode(
-                        _PERMIT_TRANSFER_FROM_TYPEHASH,
+                        _PERMIT_TRANSFER_FROM_ERC20SUBSCRIPTION_TYPEHASH,
                         tokenPermissions,
                         address(this),
                         permit.salt,
-                        permit.timeInterval
+                        permit.cooldownTime
                     )
                 )
             )
@@ -312,15 +320,17 @@ contract PermitSignature {
         });
     }
 
-    function defaultERC20SubscriptionPermit(address token0, uint256 salt, uint256 timeInterval)
-        internal
-        view
-        returns (IERC20Subscription.PermitTransferFrom memory)
-    {
+    function defaultERC20SubscriptionPermit(
+        address token0,
+        address to,
+        uint256 amount,
+        uint256 salt,
+        uint256 cooldownTime
+    ) internal view returns (IERC20Subscription.PermitTransferFrom memory) {
         return IERC20Subscription.PermitTransferFrom({
-            permitted: IERC20Subscription.TokenPermissions({token: token0, amount: 10 ** 18}),
+            permitted: IERC20Subscription.TokenPermissions({token: token0, amount: amount, to: to}),
             salt: salt,
-            timeInterval: timeInterval
+            cooldownTime: cooldownTime
         });
     }
 

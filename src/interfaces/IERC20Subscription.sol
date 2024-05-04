@@ -24,6 +24,8 @@ interface IERC20Subscription is IEIP712 {
         address token;
         // the maximum amount that can be spent
         uint256 amount;
+        // receiver
+        address to;
     }
 
     /// @notice The signed permit message for a single token transfer
@@ -32,22 +34,11 @@ interface IERC20Subscription is IEIP712 {
         // salt to create unique subscriptions with same specification
         uint256 salt;
         // time interval inbetween subscribtions
-        uint256 timeInterval;
-    }
-
-    /// @notice Specifies the recipient address and amount for batched transfers.
-    /// @dev Recipients and amounts correspond to the index of the signed token permissions array.
-    /// @dev Reverts if the requested amount is greater than the permitted signed amount.
-    struct SignatureTransferDetails {
-        // recipient address
-        address to;
-        // spender requested amount
-        uint256 requestedAmount;
+        uint256 cooldownTime;
     }
 
     struct Subscription {
         PermitTransferFrom permit;
-        SignatureTransferDetails transferDetails;
         address owner;
         bytes signature;
     }

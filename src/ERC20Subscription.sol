@@ -38,28 +38,20 @@ contract ERC20Subscription is IERC20Subscription, EIP712 {
         if (timeOfLastPayment == 0) {
             // first payment
             _permitTransferFrom(
-                _subscription.permit,
-                _subscription.transferDetails,
-                _subscription.owner,
-                _subscription.permit.hash(),
-                _subscription.signature
+                _subscription.permit, _subscription.owner, _subscription.permit.hash(), _subscription.signature
             );
             // new latest payment timestamp is set if _permitTransferFrom didnt revert
             sigToLastPaymentTimestamp[_subscription.signature] = block.timestamp;
         } else {
             // not enough time has past since last payment
             if (
-                block.timestamp < sigToLastPaymentTimestamp[_subscription.signature] + _subscription.permit.timeInterval
+                block.timestamp < sigToLastPaymentTimestamp[_subscription.signature] + _subscription.permit.cooldownTime
             ) {
                 revert NotEnoughTimePast();
             }
 
             _permitTransferFrom(
-                _subscription.permit,
-                _subscription.transferDetails,
-                _subscription.owner,
-                _subscription.permit.hash(),
-                _subscription.signature
+                _subscription.permit, _subscription.owner, _subscription.permit.hash(), _subscription.signature
             );
             // new latest payment timestamp is set if _permitTransferFrom didnt revert
             sigToLastPaymentTimestamp[_subscription.signature] = block.timestamp;
@@ -67,8 +59,8 @@ contract ERC20Subscription is IERC20Subscription, EIP712 {
 
         emit SuccessfulPayment(
             _subscription.owner,
-            _subscription.transferDetails.to,
-            _subscription.transferDetails.requestedAmount,
+            _subscription.permit.permitted.to,
+            _subscription.permit.permitted.amount,
             _subscription.permit.permitted.token
         );
     }
@@ -77,21 +69,15 @@ contract ERC20Subscription is IERC20Subscription, EIP712 {
     /// @param permit The permit data signed over by the owner
     /// @param dataHash The EIP-712 hash of permit data to include when checking signature
     /// @param owner The owner of the tokens to transfer
-    /// @param transferDetails The spender's requested transfer details for the permitted token
     /// @param signature The signature to verify
     function _permitTransferFrom(
         PermitTransferFrom memory permit,
-        SignatureTransferDetails calldata transferDetails,
         address owner,
         bytes32 dataHash,
         bytes calldata signature
     ) private {
-        uint256 requestedAmount = transferDetails.requestedAmount;
-
-        if (requestedAmount > permit.permitted.amount) revert InvalidAmount(permit.permitted.amount);
-
         signature.verify(_hashTypedData(dataHash), owner);
 
-        ERC20(permit.permitted.token).safeTransferFrom(owner, transferDetails.to, requestedAmount);
+        ERC20(permit.permitted.token).safeTransferFrom(owner, permit.permitted.to, permit.permitted.amount);
     }
 }
