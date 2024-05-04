@@ -24,15 +24,19 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
     address from;
     uint256 fromPrivateKey;
-    uint256 defaultAmount = 1 ** 18;
+    uint256 defaultAmount = 10 * 1e6;
 
     address address0 = address(0x0);
     address address2 = address(0x2);
+    address address3 = address(0x3);
+
+    address feeRecipient = address3;
+    uint16 feeBasisPoints = 3000;
 
     bytes32 DOMAIN_SEPARATOR;
 
     function setUp() public {
-        erc20Subscription = new ERC20Subscription();
+        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints);
         DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
 
         fromPrivateKey = 0x12341234;
@@ -60,8 +64,12 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
         erc20Subscription.collectPayment(subscription);
 
+        (uint256 fee, uint256 remaining) = erc20Subscription.calculateFee(defaultAmount);
+
+        assertEq(defaultAmount, remaining + fee);
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
-        assertEq(token0.balanceOf(address2), startBalanceTo + defaultAmount);
+        assertEq(token0.balanceOf(address2), startBalanceTo + remaining);
+        assertEq(token0.balanceOf(feeRecipient), fee);
     }
 
     // tests that a subscription is blocked when the user has blocked it
@@ -114,19 +122,24 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         vm.warp(0);
         erc20Subscription.collectPayment(subscription);
 
+        (uint256 fee, uint256 remaining) = erc20Subscription.calculateFee(defaultAmount);
+
+        assertEq(defaultAmount, remaining + fee);
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
-        assertEq(token0.balanceOf(address2), startBalanceTo + defaultAmount);
+        assertEq(token0.balanceOf(address2), startBalanceTo + remaining);
+        assertEq(token0.balanceOf(feeRecipient), fee);
 
         vm.warp(0 + cooldownTime + 1);
         erc20Subscription.collectPayment(subscription);
 
-        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount - defaultAmount);
-        assertEq(token0.balanceOf(address2), startBalanceTo + defaultAmount + defaultAmount);
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2);
+        assertEq(token0.balanceOf(address2), startBalanceTo + remaining * 2);
+        assertEq(token0.balanceOf(feeRecipient), fee * 2);
     }
 
     // tests that collecyPayment cannot be called until cooldown has passed
     // NOT COVERING 0, since warp argument will underflow
-    function testFail_CollectPaymentBeforeCooldownPassed(uint256 cooldownTime) public {
+    function testFail_Collect_PaymentBeforeCooldownPassed(uint256 cooldownTime) public {
         vm.assume(cooldownTime > 0);
 
         uint256 salt = 0;
@@ -145,7 +158,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
     }
 
     // tests that collectPayment can be called immediately with cooldown time of 0
-    function test_CollectPaymentImmediatelyWithZeroCooldown() public {
+    function test_Collect_PaymentImmediatelyWithZeroCooldown() public {
         uint256 salt = 0;
         uint256 cooldownTime = 0;
         IERC20Subscription.PermitTransferFrom memory permit =
@@ -216,8 +229,12 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         erc20Subscription.collectPayment(subscription);
         snapEnd();
 
+        (uint256 fee, uint256 remaining) = erc20Subscription.calculateFee(defaultAmount);
+
+        assertEq(defaultAmount, remaining + fee);
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
-        assertEq(token0.balanceOf(address2), startBalanceTo + defaultAmount);
+        assertEq(token0.balanceOf(address2), startBalanceTo + remaining);
+        assertEq(token0.balanceOf(feeRecipient), fee);
     }
 
     function test_GasCollectPaymentSecond() public {
@@ -239,7 +256,10 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         erc20Subscription.collectPayment(subscription);
         snapEnd();
 
-        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount - defaultAmount);
-        assertEq(token0.balanceOf(address2), startBalanceTo + defaultAmount + defaultAmount);
+        (uint256 fee, uint256 remaining) = erc20Subscription.calculateFee(defaultAmount);
+
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2);
+        assertEq(token0.balanceOf(address2), startBalanceTo + remaining * 2);
+        assertEq(token0.balanceOf(feeRecipient), fee * 2);
     }
 }

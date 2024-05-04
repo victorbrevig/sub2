@@ -8,8 +8,9 @@ import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 import {SignatureVerification} from "./libraries/SignatureVerification.sol";
 import {PermitHash} from "./libraries/PermitHash.sol";
 import {EIP712} from "./EIP712.sol";
+import {FeeManager} from "./FeeManager.sol";
 
-contract ERC20Subscription is IERC20Subscription, EIP712 {
+contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
     using SignatureVerification for bytes;
     using SafeTransferLib for ERC20;
     using PermitHash for PermitTransferFrom;
@@ -19,6 +20,8 @@ contract ERC20Subscription is IERC20Subscription, EIP712 {
 
     // returns true if the signature is blocked by user (user has unsibscribed)
     mapping(bytes => bool) private sigToIsBlocked;
+
+    constructor(address _feeRecipient, uint16 _feeBasisPoints) FeeManager(_feeRecipient, _feeBasisPoints) {}
 
     // same as unsubcribing, but can be done before subscription is initialized (before first payment)
     // checks if the signature is valid meaning that the signature came from the owner of the subscription
@@ -78,6 +81,11 @@ contract ERC20Subscription is IERC20Subscription, EIP712 {
     ) private {
         signature.verify(_hashTypedData(dataHash), owner);
 
-        ERC20(permit.permitted.token).safeTransferFrom(owner, permit.permitted.to, permit.permitted.amount);
+        // take fee
+        (uint256 fee, uint256 remainingAmount) = calculateFee(permit.permitted.amount);
+        ERC20(permit.permitted.token).safeTransferFrom(owner, feeRecipient, fee);
+
+        // transfer remaining amount
+        ERC20(permit.permitted.token).safeTransferFrom(owner, permit.permitted.to, remainingAmount);
     }
 }
