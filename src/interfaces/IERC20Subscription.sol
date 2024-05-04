@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {IEIP712} from "./IEIP712.sol";
 
 interface IERC20Subscription is IEIP712 {
-    function blockSubscription(bytes calldata _signature) external;
+    function blockSubscription(Subscription calldata subscription) external;
 
     event SuccessfulPayment(address from, address to, uint256 amount, address token);
 
@@ -45,10 +45,12 @@ interface IERC20Subscription is IEIP712 {
         uint256 requestedAmount;
     }
 
-    function collectPayment(
-        PermitTransferFrom memory permit,
-        SignatureTransferDetails calldata transferDetails,
-        address owner,
-        bytes calldata signature
-    ) external;
+    struct Subscription {
+        PermitTransferFrom permit;
+        SignatureTransferDetails transferDetails;
+        address owner;
+        bytes signature;
+    }
+
+    function collectPayment(Subscription calldata _subscription) external;
 }

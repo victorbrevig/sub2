@@ -12,15 +12,18 @@ contract BatchPaymentCollector is IBatchPaymentCollector {
         erc20SubscriptionContract = _erc20SubscriptionContract;
     }
 
-    function collectBatchPayment(
-        IERC20Subscription.PermitTransferFrom[] memory permit,
-        IERC20Subscription.SignatureTransferDetails[] calldata transferDetails,
-        address[] calldata owners,
-        bytes[] calldata signatures
-    ) public override {
-        for (uint256 i = 0; i < permit.length; ++i) {
-            try erc20SubscriptionContract.collectPayment(permit[i], transferDetails[i], owners[i], signatures[i]) {}
-                catch (bytes memory revertData) {}
+    function collectBatchPayment(IERC20Subscription.Subscription[] calldata _subscriptions) public override {
+        for (uint256 i = 0; i < _subscriptions.length; ++i) {
+            try erc20SubscriptionContract.collectPayment(_subscriptions[i]) {}
+            catch (bytes memory revertData) {
+                emit FailedPayment(
+                    _subscriptions[i].owner,
+                    _subscriptions[i].transferDetails.to,
+                    _subscriptions[i].transferDetails.requestedAmount,
+                    _subscriptions[i].permit.permitted.token,
+                    revertData
+                );
+            }
         }
     }
 }

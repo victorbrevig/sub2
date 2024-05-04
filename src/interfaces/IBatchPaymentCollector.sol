@@ -4,10 +4,7 @@ pragma solidity ^0.8.0;
 import {IERC20Subscription} from "./IERC20Subscription.sol";
 
 interface IBatchPaymentCollector {
-    function collectBatchPayment(
-        IERC20Subscription.PermitTransferFrom[] memory permit,
-        IERC20Subscription.SignatureTransferDetails[] calldata transferDetails,
-        address[] calldata owners,
-        bytes[] calldata signatures
-    ) external;
+    event FailedPayment(address from, address to, uint256 amount, address token, bytes revertData);
+
+    function collectBatchPayment(IERC20Subscription.Subscription[] calldata _subscriptions) external;
 }

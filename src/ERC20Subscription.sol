@@ -18,43 +18,59 @@ contract ERC20Subscription is IERC20Subscription, EIP712 {
     mapping(bytes => uint256) private sigToLastPaymentTimestamp;
 
     // returns true if the signature is blocked by user (user has unsibscribed)
-    mapping(address => mapping(bytes => bool)) private sigToIsBlocked;
+    mapping(bytes => bool) private sigToIsBlocked;
 
     // same as unsubcribing, but can be done before subscription is initialized (before first payment)
+    // checks if the signature is valid meaning that the signature came from the owner of the subscription
     /// @inheritdoc IERC20Subscription
-    function blockSubscription(bytes calldata _signature) external override {
-        sigToIsBlocked[msg.sender][_signature] = true;
+    function blockSubscription(Subscription calldata _subscription) external override {
+        _subscription.signature.verify(_hashTypedData(_subscription.permit.hash()), _subscription.owner);
+        sigToIsBlocked[_subscription.signature] = true;
     }
 
     /// @inheritdoc IERC20Subscription
-    function collectPayment(
-        PermitTransferFrom memory permit,
-        SignatureTransferDetails calldata transferDetails,
-        address owner,
-        bytes calldata signature
-    ) external override {
+    function collectPayment(Subscription calldata _subscription) external override {
         // if subscription has been blocked by user, revert
-        if (sigToIsBlocked[owner][signature]) revert SubscriptionBlocked();
+        if (sigToIsBlocked[_subscription.signature]) revert SubscriptionBlocked();
 
-        uint256 timeOfLastPayment = sigToLastPaymentTimestamp[signature];
+        uint256 timeOfLastPayment = sigToLastPaymentTimestamp[_subscription.signature];
 
         if (timeOfLastPayment == 0) {
             // first payment
-            _permitTransferFrom(permit, transferDetails, owner, permit.hash(), signature);
+            _permitTransferFrom(
+                _subscription.permit,
+                _subscription.transferDetails,
+                _subscription.owner,
+                _subscription.permit.hash(),
+                _subscription.signature
+            );
             // new latest payment timestamp is set if _permitTransferFrom didnt revert
-            sigToLastPaymentTimestamp[signature] = block.timestamp;
+            sigToLastPaymentTimestamp[_subscription.signature] = block.timestamp;
         } else {
             // not enough time has past since last payment
-            if (block.timestamp < sigToLastPaymentTimestamp[signature] + permit.timeInterval) {
+            if (
+                block.timestamp < sigToLastPaymentTimestamp[_subscription.signature] + _subscription.permit.timeInterval
+            ) {
                 revert NotEnoughTimePast();
             }
 
-            _permitTransferFrom(permit, transferDetails, owner, permit.hash(), signature);
+            _permitTransferFrom(
+                _subscription.permit,
+                _subscription.transferDetails,
+                _subscription.owner,
+                _subscription.permit.hash(),
+                _subscription.signature
+            );
             // new latest payment timestamp is set if _permitTransferFrom didnt revert
-            sigToLastPaymentTimestamp[signature] = block.timestamp;
+            sigToLastPaymentTimestamp[_subscription.signature] = block.timestamp;
         }
 
-        emit SuccessfulPayment(owner, transferDetails.to, transferDetails.requestedAmount, permit.permitted.token);
+        emit SuccessfulPayment(
+            _subscription.owner,
+            _subscription.transferDetails.to,
+            _subscription.transferDetails.requestedAmount,
+            _subscription.permit.permitted.token
+        );
     }
 
     /// @notice Transfers a token using a signed permit message.

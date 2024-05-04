@@ -6,6 +6,7 @@ import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/draft-
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {IAllowanceTransfer} from "../../src/interfaces/IAllowanceTransfer.sol";
 import {ISignatureTransfer} from "../../src/interfaces/ISignatureTransfer.sol";
+import {IERC20Subscription} from "../../src/interfaces/IERC20Subscription.sol";
 
 contract PermitSignature {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -153,6 +154,32 @@ contract PermitSignature {
         return bytes.concat(r, s, bytes1(v));
     }
 
+    function getPermitERC20SubscriptionSignature(
+        IERC20Subscription.PermitTransferFrom memory permit,
+        uint256 privateKey,
+        bytes32 domainSeparator
+    ) internal view returns (bytes memory sig) {
+        bytes32 tokenPermissions = keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permit.permitted));
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                keccak256(
+                    abi.encode(
+                        _PERMIT_TRANSFER_FROM_TYPEHASH,
+                        tokenPermissions,
+                        address(this),
+                        permit.salt,
+                        permit.timeInterval
+                    )
+                )
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, msgHash);
+        return bytes.concat(r, s, bytes1(v));
+    }
+
     function getPermitWitnessTransferSignature(
         ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 privateKey,
@@ -282,6 +309,18 @@ contract PermitSignature {
             permitted: ISignatureTransfer.TokenPermissions({token: token0, amount: 10 ** 18}),
             nonce: nonce,
             deadline: block.timestamp + 100
+        });
+    }
+
+    function defaultERC20SubscriptionPermit(address token0, uint256 salt, uint256 timeInterval)
+        internal
+        view
+        returns (IERC20Subscription.PermitTransferFrom memory)
+    {
+        return IERC20Subscription.PermitTransferFrom({
+            permitted: IERC20Subscription.TokenPermissions({token: token0, amount: 10 ** 18}),
+            salt: salt,
+            timeInterval: timeInterval
         });
     }
 
