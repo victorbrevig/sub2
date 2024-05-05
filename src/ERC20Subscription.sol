@@ -24,8 +24,8 @@ contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
     // returns true if the signature is blocked by user (user has unsibscribed)
     mapping(bytes => bool) private sigToIsBlocked;
 
-    constructor(address _feeRecipient, uint16 _feeBasisPoints, address _authAddress)
-        FeeManager(_feeRecipient, _feeBasisPoints)
+    constructor(address _feeRecipient, uint16 _feeBasisPoints, address _authAddress, address _owner)
+        FeeManager(_owner, _feeRecipient, _feeBasisPoints)
     {
         authAddress = _authAddress;
     }

@@ -47,8 +47,8 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         authPrivateKey = 0x43214321;
         auth = vm.addr(authPrivateKey);
 
-        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints, auth);
-        erc20Subscription2 = new ERC20Subscription(feeRecipient, feeBasisPoints, auth);
+        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints, auth, address2);
+        erc20Subscription2 = new ERC20Subscription(feeRecipient, feeBasisPoints, auth, address2);
         DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
 
         initializeERC20Tokens();
@@ -117,6 +117,22 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
         vm.prank(address(0));
         erc20Subscription.blockSubscription(subscription);
+    }
+
+    // tests that Subscription is invalid with wrong authSignature
+    function testFail_WrongAuthSignature(uint256 privateKey) public {
+        uint256 salt = 0;
+        uint256 cooldownTime = 0;
+        IERC20Subscription.PermitTransferFrom memory permit =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
+        bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        bytes memory authSig = getAuthSignature(sig, privateKey);
+
+        IERC20Subscription.Subscription memory subscription =
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
+
+        erc20Subscription.collectPayment(subscription);
     }
 
     // tests that collectPayment can be called with right transfers after cooldown has passed

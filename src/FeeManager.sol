@@ -2,16 +2,16 @@
 pragma solidity 0.8.17;
 
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Owned} from "solmate/src/auth/Owned.sol";
 
-contract FeeManager is IFeeManager, Ownable {
+contract FeeManager is IFeeManager, Owned {
     uint32 public constant FEE_BASE = 1_000_000;
 
     // like uniswap, 3000 = 0.3% etc
     uint16 public feeBasisPoints;
     address internal feeRecipient;
 
-    constructor(address _feeRecipient, uint16 _feeBasisPoints) {
+    constructor(address _owner, address _feeRecipient, uint16 _feeBasisPoints) Owned(_owner) {
         feeRecipient = _feeRecipient;
         feeBasisPoints = _feeBasisPoints;
     }

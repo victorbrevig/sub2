@@ -6,9 +6,9 @@ import {IERC20Subscription} from "./interfaces/IERC20Subscription.sol";
 import {ERC20Subscription} from "./ERC20Subscription.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Owned} from "solmate/src/auth/Owned.sol";
 
-contract BatchExecutor is IBatchExecutor, Ownable {
+contract BatchExecutor is IBatchExecutor, Owned {
     using SafeTransferLib for ERC20;
 
     ERC20Subscription public immutable erc20SubscriptionContract;
@@ -25,8 +25,9 @@ contract BatchExecutor is IBatchExecutor, Ownable {
         ERC20Subscription _erc20SubscriptionContract,
         address _rewardTokenAddress,
         uint256 _rewardFactor,
-        address _treasuryAddress
-    ) {
+        address _treasuryAddress,
+        address _owner
+    ) Owned(_owner) {
         erc20SubscriptionContract = _erc20SubscriptionContract;
         rewardTokenAddress = _rewardTokenAddress;
         rewardFactor = _rewardFactor;

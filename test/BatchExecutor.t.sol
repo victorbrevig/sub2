@@ -56,7 +56,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         authPrivateKey = 0x12345678;
         auth = vm.addr(authPrivateKey);
 
-        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints, auth);
+        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints, auth, treasury);
         DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
 
         initializeERC20Tokens();
@@ -65,7 +65,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         setERC20TestTokens(treasury);
         setERC20TestTokenApprovals(vm, from, address(erc20Subscription));
 
-        batchExecutor = new BatchExecutor(erc20Subscription, address(token1), rewardFactor, treasury);
+        batchExecutor = new BatchExecutor(erc20Subscription, address(token1), rewardFactor, treasury, treasury);
         setERC20TestTokenApprovals(vm, treasury, address(batchExecutor));
     }
 

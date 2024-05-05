@@ -33,7 +33,7 @@ contract FeeManagerTest is Test, TokenProvider, GasSnapshot {
 
     function setUp() public {
         vm.prank(address0);
-        feeManager = new FeeManager(address0, feeBasisPoints);
+        feeManager = new FeeManager(address2, address0, feeBasisPoints);
 
         fromPrivateKey = 0x12341234;
         from = vm.addr(fromPrivateKey);
