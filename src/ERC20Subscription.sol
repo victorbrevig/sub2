@@ -27,6 +27,7 @@ contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
     // checks if the signature is valid meaning that the signature came from the owner of the subscription
     /// @inheritdoc IERC20Subscription
     function blockSubscription(Subscription calldata _subscription) external override {
+        if (_subscription.owner != msg.sender) revert NotOwnerOfSubscription();
         _subscription.signature.verify(_hashTypedData(_subscription.permit.hash()), _subscription.owner);
         sigToIsBlocked[_subscription.signature] = true;
     }

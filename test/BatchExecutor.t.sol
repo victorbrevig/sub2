@@ -73,8 +73,16 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.Subscription[] memory subscriptions = new IERC20Subscription.Subscription[](1);
         subscriptions[0] = IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
 
+        vm.prank(from);
         batchExecutor.executeBatch(subscriptions);
 
-        assertEq(batchExecutor.claimableRewards(from), rewardFactor);
+        uint256 startBalanceFrom = token1.balanceOf(from);
+        uint256 startBalanceTreasury = token1.balanceOf(treasury);
+
+        vm.prank(from);
+        batchExecutor.claimRewards();
+
+        assertEq(token1.balanceOf(from), startBalanceFrom + rewardFactor);
+        assertEq(token1.balanceOf(treasury), startBalanceTreasury - rewardFactor);
     }
 }

@@ -12,6 +12,9 @@ contract BatchExecutor is IBatchExecutor {
 
     ERC20Subscription public immutable erc20SubscriptionContract;
 
+    event NumberOfSuccessfulPayments(uint256 successfullPayments);
+    event UpdatingClaimableRewards(address indexed from, uint256 amount);
+
     address public rewardTokenAddress;
     address public treasuryAddress;
 
@@ -47,10 +50,14 @@ contract BatchExecutor is IBatchExecutor {
                 );
             }
         }
+
         // update claimable tokens depending on successfullPayments
         if (successfullPayments > 0) {
+            emit UpdatingClaimableRewards(msg.sender, successfullPayments * rewardFactor);
             claimableRewards[msg.sender] += successfullPayments * rewardFactor;
         }
+
+        emit NumberOfSuccessfulPayments(successfullPayments);
     }
 
     // should have approval from treasuryAddress to transfer rewardToken, otherwise will revert

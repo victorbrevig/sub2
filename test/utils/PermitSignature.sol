@@ -32,7 +32,7 @@ contract PermitSignature {
     );
 
     bytes32 public constant _PERMIT_TRANSFER_FROM_ERC20SUBSCRIPTION_TYPEHASH = keccak256(
-        "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 salt,uint256 cooldownTime)TokenPermissions(address token,uint256 amount,address to)"
+        "PermitTransferFrom(TokenPermissions permitted,uint256 salt,uint256 cooldownTime)TokenPermissions(address token,uint256 amount,address to)"
     );
 
     bytes32 public constant _PERMIT_BATCH_TRANSFER_FROM_TYPEHASH = keccak256(
@@ -176,7 +176,6 @@ contract PermitSignature {
                     abi.encode(
                         _PERMIT_TRANSFER_FROM_ERC20SUBSCRIPTION_TYPEHASH,
                         tokenPermissions,
-                        address(this),
                         permit.salt,
                         permit.cooldownTime
                     )

@@ -303,4 +303,36 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         assertEq(token0.balanceOf(address2), startBalanceTo + remaining);
         assertEq(token0.balanceOf(feeRecipient), fee);
     }
+
+    // tests that two similar subscription (token, to, owner etc) can be used with different salt
+    function test_TwoSimilarSubscriptionsDifferentSalt() public {
+        uint256 salt0 = 0;
+        uint256 salt1 = 1;
+        uint256 cooldownTime = 0;
+        IERC20Subscription.PermitTransferFrom memory permit0 =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt0, cooldownTime);
+        bytes memory sig0 = getPermitERC20SubscriptionSignature(permit0, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        IERC20Subscription.PermitTransferFrom memory permit1 =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt1, cooldownTime);
+        bytes memory sig1 = getPermitERC20SubscriptionSignature(permit1, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        IERC20Subscription.Subscription memory subscription0 =
+            IERC20Subscription.Subscription({owner: from, signature: sig0, permit: permit0});
+
+        IERC20Subscription.Subscription memory subscription1 =
+            IERC20Subscription.Subscription({owner: from, signature: sig1, permit: permit1});
+
+        uint256 startBalanceFrom = token0.balanceOf(from);
+        uint256 startBalanceTo = token0.balanceOf(address2);
+        erc20Subscription.collectPayment(subscription0);
+        erc20Subscription.collectPayment(subscription1);
+
+        (uint256 fee, uint256 remaining) = erc20Subscription.calculateFee(defaultAmount);
+
+        assertEq(defaultAmount, remaining + fee);
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2);
+        assertEq(token0.balanceOf(address2), startBalanceTo + remaining * 2);
+        assertEq(token0.balanceOf(feeRecipient), fee * 2);
+    }
 }

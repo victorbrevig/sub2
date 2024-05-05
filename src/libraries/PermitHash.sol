@@ -27,7 +27,7 @@ library PermitHash {
     );
 
     bytes32 public constant _PERMIT_TRANSFER_FROM_TYPEHASH_ERC20SUBSCRIPTION = keccak256(
-        "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 salt,uint256 cooldownTime)TokenPermissions(address token,uint256 amount,address to)"
+        "PermitTransferFrom(TokenPermissions permitted,uint256 salt,uint256 cooldownTime)TokenPermissions(address token,uint256 amount,address to)"
     );
 
     bytes32 public constant _PERMIT_BATCH_TRANSFER_FROM_TYPEHASH = keccak256(
@@ -68,11 +68,7 @@ library PermitHash {
         bytes32 tokenPermissionsHash = _hashTokenPermissions(permit.permitted);
         return keccak256(
             abi.encode(
-                _PERMIT_TRANSFER_FROM_TYPEHASH_ERC20SUBSCRIPTION,
-                tokenPermissionsHash,
-                msg.sender,
-                permit.salt,
-                permit.cooldownTime
+                _PERMIT_TRANSFER_FROM_TYPEHASH_ERC20SUBSCRIPTION, tokenPermissionsHash, permit.salt, permit.cooldownTime
             )
         );
     }

@@ -18,6 +18,9 @@ interface IERC20Subscription is IEIP712 {
     /// @notice Thrown when there has not been enough time past since the last payment
     error NotEnoughTimePast();
 
+    /// @notice Thrown when the caller is not the owner of the subscription
+    error NotOwnerOfSubscription();
+
     /// @notice The token and amount details for a transfer signed in the permit transfer signature
     struct TokenPermissions {
         // ERC20 token address
