@@ -85,4 +85,30 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         assertEq(token1.balanceOf(from), startBalanceFrom + rewardFactor);
         assertEq(token1.balanceOf(treasury), startBalanceTreasury - rewardFactor);
     }
+
+    // tests that a failed  collectPayment will not increase the claimable rewards
+    function test_FailedCollectPayment() public {
+        uint256 salt = 0;
+        uint256 cooldownTime = 0;
+        // collectPayment with this subscription should fail
+        uint256 amountToTransfer = token0.balanceOf(from) + 1;
+        IERC20Subscription.PermitTransferFrom memory permit =
+            defaultERC20SubscriptionPermit(address(token0), address2, amountToTransfer, salt, cooldownTime);
+        bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        IERC20Subscription.Subscription[] memory subscriptions = new IERC20Subscription.Subscription[](1);
+        subscriptions[0] = IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+
+        vm.prank(from);
+        batchExecutor.executeBatch(subscriptions);
+
+        uint256 startBalanceFrom = token1.balanceOf(from);
+        uint256 startBalanceTreasury = token1.balanceOf(treasury);
+
+        vm.prank(from);
+        batchExecutor.claimRewards();
+
+        assertEq(token1.balanceOf(from), startBalanceFrom);
+        assertEq(token1.balanceOf(treasury), startBalanceTreasury);
+    }
 }

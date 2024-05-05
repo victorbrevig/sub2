@@ -83,7 +83,7 @@ contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
         signature.verify(_hashTypedData(dataHash), owner);
 
         // take fee
-        (uint256 fee, uint256 remainingAmount) = calculateFee(permit.permitted.amount);
+        (uint256 fee, uint256 remainingAmount) = calculateFee(permit.permitted.amount, feeBasisPoints);
         ERC20(permit.permitted.token).safeTransferFrom(owner, feeRecipient, fee);
 
         // transfer remaining amount

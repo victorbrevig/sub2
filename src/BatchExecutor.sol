@@ -6,14 +6,12 @@ import {IERC20Subscription} from "./interfaces/IERC20Subscription.sol";
 import {ERC20Subscription} from "./ERC20Subscription.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
-contract BatchExecutor is IBatchExecutor {
+contract BatchExecutor is IBatchExecutor, Ownable {
     using SafeTransferLib for ERC20;
 
     ERC20Subscription public immutable erc20SubscriptionContract;
-
-    event NumberOfSuccessfulPayments(uint256 successfullPayments);
-    event UpdatingClaimableRewards(address indexed from, uint256 amount);
 
     address public rewardTokenAddress;
     address public treasuryAddress;
@@ -41,23 +39,14 @@ contract BatchExecutor is IBatchExecutor {
             try erc20SubscriptionContract.collectPayment(_subscriptions[i]) {
                 successfullPayments++;
             } catch (bytes memory revertData) {
-                emit FailedPayment(
-                    _subscriptions[i].owner,
-                    _subscriptions[i].permit.permitted.to,
-                    _subscriptions[i].permit.permitted.amount,
-                    _subscriptions[i].permit.permitted.token,
-                    revertData
-                );
+                emit FailedExecution(_subscriptions[i], revertData);
             }
         }
 
         // update claimable tokens depending on successfullPayments
         if (successfullPayments > 0) {
-            emit UpdatingClaimableRewards(msg.sender, successfullPayments * rewardFactor);
             claimableRewards[msg.sender] += successfullPayments * rewardFactor;
         }
-
-        emit NumberOfSuccessfulPayments(successfullPayments);
     }
 
     // should have approval from treasuryAddress to transfer rewardToken, otherwise will revert
@@ -65,5 +54,13 @@ contract BatchExecutor is IBatchExecutor {
         uint256 claimableAmount = claimableRewards[msg.sender];
         claimableRewards[msg.sender] = 0;
         ERC20(rewardTokenAddress).safeTransferFrom(treasuryAddress, msg.sender, claimableAmount);
+    }
+
+    function setRewardFactor(uint256 _rewardFactor) public override onlyOwner {
+        rewardFactor = _rewardFactor;
+    }
+
+    function setTreasuryAddress(address _treasuryAddress) public override onlyOwner {
+        treasuryAddress = _treasuryAddress;
     }
 }

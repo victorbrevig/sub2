@@ -5,7 +5,7 @@ import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract FeeManager is IFeeManager, Ownable {
-    uint256 constant FEE_BASE = 1_000_000;
+    uint32 public constant FEE_BASE = 1_000_000;
 
     // like uniswap, 3000 = 0.3% etc
     uint16 public feeBasisPoints;
@@ -17,11 +17,16 @@ contract FeeManager is IFeeManager, Ownable {
     }
 
     // Function to calculate fee and remaining amount
-    function calculateFee(uint256 amount) public view override returns (uint256 fee, uint256 remaining) {
+    function calculateFee(uint256 _amount, uint16 _basisPoints)
+        public
+        pure
+        override
+        returns (uint256 fee, uint256 remaining)
+    {
         // Calculate fee
-        fee = (amount * feeBasisPoints) / FEE_BASE;
+        fee = (_amount * _basisPoints) / FEE_BASE;
         // Calculate remaining amount after fee deduction
-        remaining = amount - fee;
+        remaining = _amount - fee;
         return (fee, remaining);
     }
 
