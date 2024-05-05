@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {IBatchPaymentCollector} from "./interfaces/IBatchPaymentCollector.sol";
+import {IBatchExecutor} from "./interfaces/IBatchExecutor.sol";
 import {IERC20Subscription} from "./interfaces/IERC20Subscription.sol";
 import {ERC20Subscription} from "./ERC20Subscription.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 
-contract BatchPaymentCollector is IBatchPaymentCollector {
+contract BatchExecutor is IBatchExecutor {
     using SafeTransferLib for ERC20;
 
     ERC20Subscription public immutable erc20SubscriptionContract;
@@ -32,7 +32,7 @@ contract BatchPaymentCollector is IBatchPaymentCollector {
         treasuryAddress = _treasuryAddress;
     }
 
-    function collectBatchPayment(IERC20Subscription.Subscription[] calldata _subscriptions) public override {
+    function executeBatch(IERC20Subscription.Subscription[] calldata _subscriptions) public override {
         uint256 successfullPayments = 0;
         for (uint256 i = 0; i < _subscriptions.length; ++i) {
             try erc20SubscriptionContract.collectPayment(_subscriptions[i]) {

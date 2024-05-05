@@ -21,6 +21,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
     event Transfer(address indexed from, address indexed token, address indexed to, uint256 amount);
 
     ERC20Subscription erc20Subscription;
+    ERC20Subscription erc20Subscription2;
 
     address from;
     uint256 fromPrivateKey;
@@ -37,6 +38,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
     function setUp() public {
         erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints);
+        erc20Subscription2 = new ERC20Subscription(feeRecipient, feeBasisPoints);
         DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
 
         fromPrivateKey = 0x12341234;
@@ -46,6 +48,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
         setERC20TestTokens(from);
         setERC20TestTokenApprovals(vm, from, address(erc20Subscription));
+        setERC20TestTokenApprovals(vm, from, address(erc20Subscription2));
     }
 
     // tests that funds are correctly transferred from the owner to the recipient upon payment for initial payment
@@ -139,7 +142,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
     // tests that collecyPayment cannot be called until cooldown has passed
     // NOT COVERING 0, since warp argument will underflow
-    function testFail_Collect_PaymentBeforeCooldownPassed(uint256 cooldownTime) public {
+    function testFail_CollectPaymentBeforeCooldownPassed(uint256 cooldownTime) public {
         vm.assume(cooldownTime > 0);
 
         uint256 salt = 0;
@@ -158,7 +161,7 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
     }
 
     // tests that collectPayment can be called immediately with cooldown time of 0
-    function test_Collect_PaymentImmediatelyWithZeroCooldown() public {
+    function test_CollectPaymentImmediatelyWithZeroCooldown() public {
         uint256 salt = 0;
         uint256 cooldownTime = 0;
         IERC20Subscription.PermitTransferFrom memory permit =
@@ -261,5 +264,43 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2);
         assertEq(token0.balanceOf(address2), startBalanceTo + remaining * 2);
         assertEq(token0.balanceOf(feeRecipient), fee * 2);
+    }
+
+    // tests that funds are correctly transferred from the owner to the recipient upon payment for initial payment
+    function testFail_UsePermitWithOtherContract() public {
+        uint256 salt = 0;
+        uint256 cooldownTime = 0;
+        IERC20Subscription.PermitTransferFrom memory permit =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
+        bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        IERC20Subscription.Subscription memory subscription =
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+
+        erc20Subscription2.collectPayment(subscription);
+    }
+
+    function test_AnyoneCanCollectPayment() public {
+        uint256 salt = 0;
+        uint256 cooldownTime = 0;
+        IERC20Subscription.PermitTransferFrom memory permit =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
+        bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
+
+        IERC20Subscription.Subscription memory subscription =
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+
+        uint256 startBalanceFrom = token0.balanceOf(from);
+        uint256 startBalanceTo = token0.balanceOf(address2);
+
+        vm.prank(address(0));
+        erc20Subscription.collectPayment(subscription);
+
+        (uint256 fee, uint256 remaining) = erc20Subscription.calculateFee(defaultAmount);
+
+        assertEq(defaultAmount, remaining + fee);
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
+        assertEq(token0.balanceOf(address2), startBalanceTo + remaining);
+        assertEq(token0.balanceOf(feeRecipient), fee);
     }
 }

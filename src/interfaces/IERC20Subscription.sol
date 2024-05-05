@@ -12,10 +12,10 @@ interface IERC20Subscription is IEIP712 {
     /// @param maxAmount The maximum amount a spender can request to transfer
     error InvalidAmount(uint256 maxAmount);
 
-    /// @notice Thrown when when the subscription (given by the signature) has been blocked by the user
+    /// @notice Thrown when the subscription (given by the signature) has been blocked by the user
     error SubscriptionBlocked();
 
-    /// @notice Thrown when when there has not been enough time past since the last payment
+    /// @notice Thrown when there has not been enough time past since the last payment
     error NotEnoughTimePast();
 
     /// @notice The token and amount details for a transfer signed in the permit transfer signature
