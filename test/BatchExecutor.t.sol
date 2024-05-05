@@ -32,6 +32,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
     address treasury;
     uint256 treasuryPrivateKey;
 
+    address auth;
+    uint256 authPrivateKey;
+
     uint256 rewardFactor = 1;
 
     address address0 = address(0x0);
@@ -44,14 +47,17 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
     bytes32 DOMAIN_SEPARATOR;
 
     function setUp() public {
-        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints);
-        DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
-
         fromPrivateKey = 0x12341234;
         from = vm.addr(fromPrivateKey);
 
         treasuryPrivateKey = 0x43214321;
         treasury = vm.addr(treasuryPrivateKey);
+
+        authPrivateKey = 0x12345678;
+        auth = vm.addr(authPrivateKey);
+
+        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints, auth);
+        DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
 
         initializeERC20Tokens();
 
@@ -69,9 +75,10 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription[] memory subscriptions = new IERC20Subscription.Subscription[](1);
-        subscriptions[0] = IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+        subscriptions[0] =
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         vm.prank(from);
         batchExecutor.executeBatch(subscriptions);
@@ -95,9 +102,10 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, amountToTransfer, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription[] memory subscriptions = new IERC20Subscription.Subscription[](1);
-        subscriptions[0] = IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+        subscriptions[0] =
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         vm.prank(from);
         batchExecutor.executeBatch(subscriptions);

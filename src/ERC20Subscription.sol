@@ -9,11 +9,14 @@ import {SignatureVerification} from "./libraries/SignatureVerification.sol";
 import {PermitHash} from "./libraries/PermitHash.sol";
 import {EIP712} from "./EIP712.sol";
 import {FeeManager} from "./FeeManager.sol";
+import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
     using SignatureVerification for bytes;
     using SafeTransferLib for ERC20;
     using PermitHash for PermitTransferFrom;
+
+    address authAddress;
 
     // returns the last block timestamp the signature was used
     mapping(bytes => uint256) private sigToLastPaymentTimestamp;
@@ -21,7 +24,11 @@ contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
     // returns true if the signature is blocked by user (user has unsibscribed)
     mapping(bytes => bool) private sigToIsBlocked;
 
-    constructor(address _feeRecipient, uint16 _feeBasisPoints) FeeManager(_feeRecipient, _feeBasisPoints) {}
+    constructor(address _feeRecipient, uint16 _feeBasisPoints, address _authAddress)
+        FeeManager(_feeRecipient, _feeBasisPoints)
+    {
+        authAddress = _authAddress;
+    }
 
     // same as unsubcribing, but can be done before subscription is initialized (before first payment)
     // checks if the signature is valid meaning that the signature came from the owner of the subscription
@@ -42,7 +49,11 @@ contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
         if (timeOfLastPayment == 0) {
             // first payment
             _permitTransferFrom(
-                _subscription.permit, _subscription.owner, _subscription.permit.hash(), _subscription.signature
+                _subscription.permit,
+                _subscription.owner,
+                _subscription.permit.hash(),
+                _subscription.signature,
+                _subscription.authSignature
             );
             // new latest payment timestamp is set if _permitTransferFrom didnt revert
             sigToLastPaymentTimestamp[_subscription.signature] = block.timestamp;
@@ -55,7 +66,11 @@ contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
             }
 
             _permitTransferFrom(
-                _subscription.permit, _subscription.owner, _subscription.permit.hash(), _subscription.signature
+                _subscription.permit,
+                _subscription.owner,
+                _subscription.permit.hash(),
+                _subscription.signature,
+                _subscription.authSignature
             );
             // new latest payment timestamp is set if _permitTransferFrom didnt revert
             sigToLastPaymentTimestamp[_subscription.signature] = block.timestamp;
@@ -78,9 +93,15 @@ contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
         PermitTransferFrom memory permit,
         address owner,
         bytes32 dataHash,
-        bytes calldata signature
+        bytes calldata signature,
+        bytes calldata authSignature
     ) private {
+        // verifies that the signature was signed by the subscription owner
         signature.verify(_hashTypedData(dataHash), owner);
+        // verifies that the authSignature was signed by the trusted party
+        //authSignature.verify(_hashTypedData(keccak256(signature)), authAddress);
+        address recoverdAuthAddress = ECDSA.recover(keccak256(signature), authSignature);
+        if (recoverdAuthAddress != authAddress) revert InvalidAuthSignature();
 
         // take fee
         (uint256 fee, uint256 remainingAmount) = calculateFee(permit.permitted.amount, feeBasisPoints);

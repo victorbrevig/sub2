@@ -21,6 +21,9 @@ interface IERC20Subscription is IEIP712 {
     /// @notice Thrown when the caller is not the owner of the subscription
     error NotOwnerOfSubscription();
 
+    /// @notice Thrown when the authSignature is not valid
+    error InvalidAuthSignature();
+
     /// @notice The token and amount details for a transfer signed in the permit transfer signature
     struct TokenPermissions {
         // ERC20 token address
@@ -44,6 +47,8 @@ interface IERC20Subscription is IEIP712 {
         PermitTransferFrom permit;
         address owner;
         bytes signature;
+        // signature of authenticity - signed trusted party
+        bytes authSignature;
     }
 
     function collectPayment(Subscription calldata _subscription) external;

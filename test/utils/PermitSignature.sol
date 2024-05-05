@@ -187,6 +187,11 @@ contract PermitSignature {
         return bytes.concat(r, s, bytes1(v));
     }
 
+    function getAuthSignature(bytes memory signature, uint256 privateKey) internal view returns (bytes memory sig) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, keccak256(signature));
+        return abi.encodePacked(r, s, v);
+    }
+
     function getPermitWitnessTransferSignature(
         ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 privateKey,

@@ -25,6 +25,10 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
     address from;
     uint256 fromPrivateKey;
+
+    address auth;
+    uint256 authPrivateKey;
+
     uint256 defaultAmount = 10 * 1e6;
 
     address address0 = address(0x0);
@@ -37,12 +41,15 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
     bytes32 DOMAIN_SEPARATOR;
 
     function setUp() public {
-        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints);
-        erc20Subscription2 = new ERC20Subscription(feeRecipient, feeBasisPoints);
-        DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
-
         fromPrivateKey = 0x12341234;
         from = vm.addr(fromPrivateKey);
+
+        authPrivateKey = 0x43214321;
+        auth = vm.addr(authPrivateKey);
+
+        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints, auth);
+        erc20Subscription2 = new ERC20Subscription(feeRecipient, feeBasisPoints, auth);
+        DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
 
         initializeERC20Tokens();
 
@@ -59,8 +66,10 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
 
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
+
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(address2);
@@ -84,8 +93,10 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
 
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
+
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         erc20Subscription.blockSubscription(subscription);
 
@@ -100,8 +111,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
 
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         vm.prank(address(0));
         erc20Subscription.blockSubscription(subscription);
@@ -117,8 +129,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
 
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(address2);
@@ -151,9 +164,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         vm.warp(1641070800);
         erc20Subscription.collectPayment(subscription);
@@ -169,9 +182,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         vm.warp(1641070800);
         erc20Subscription.collectPayment(subscription);
@@ -188,9 +201,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         vm.warp(initialBlockTime);
         erc20Subscription.collectPayment(subscription);
@@ -209,9 +222,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         bytes memory sigExtra = bytes.concat(sig, bytes1(uint8(0)));
 
         assertEq(sigExtra.length, 66);
-
+        bytes memory authSig = getAuthSignature(sigExtra, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sigExtra, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sigExtra, permit: permit, authSignature: authSig});
 
         vm.expectRevert(SignatureVerification.InvalidSignatureLength.selector);
         erc20Subscription.collectPayment(subscription);
@@ -223,9 +236,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(address2);
@@ -249,9 +262,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(address2);
@@ -277,9 +290,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         erc20Subscription2.collectPayment(subscription);
     }
@@ -291,9 +304,9 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
         bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
         IERC20Subscription.Subscription memory subscription =
-            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit});
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
 
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(address2);
@@ -318,16 +331,16 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         IERC20Subscription.PermitTransferFrom memory permit0 =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt0, cooldownTime);
         bytes memory sig0 = getPermitERC20SubscriptionSignature(permit0, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig0 = getAuthSignature(sig0, authPrivateKey);
         IERC20Subscription.PermitTransferFrom memory permit1 =
             defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt1, cooldownTime);
         bytes memory sig1 = getPermitERC20SubscriptionSignature(permit1, fromPrivateKey, DOMAIN_SEPARATOR);
-
+        bytes memory authSig1 = getAuthSignature(sig1, authPrivateKey);
         IERC20Subscription.Subscription memory subscription0 =
-            IERC20Subscription.Subscription({owner: from, signature: sig0, permit: permit0});
+            IERC20Subscription.Subscription({owner: from, signature: sig0, permit: permit0, authSignature: authSig0});
 
         IERC20Subscription.Subscription memory subscription1 =
-            IERC20Subscription.Subscription({owner: from, signature: sig1, permit: permit1});
+            IERC20Subscription.Subscription({owner: from, signature: sig1, permit: permit1, authSignature: authSig1});
 
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(address2);
