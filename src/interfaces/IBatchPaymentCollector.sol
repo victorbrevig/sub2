@@ -7,4 +7,6 @@ interface IBatchPaymentCollector {
     event FailedPayment(address from, address to, uint256 amount, address token, bytes revertData);
 
     function collectBatchPayment(IERC20Subscription.Subscription[] calldata _subscriptions) external;
+
+    function claimRewards() external;
 }
