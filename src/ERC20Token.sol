@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
+/// @author stick
 contract ERC20Token is ERC20 {
     address public allowedMinter;
 

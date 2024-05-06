@@ -11,6 +11,7 @@ import {EIP712} from "./EIP712.sol";
 import {FeeManager} from "./FeeManager.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
+/// @author stick
 contract ERC20Subscription is IERC20Subscription, EIP712, FeeManager {
     using SignatureVerification for bytes;
     using SafeTransferLib for ERC20;

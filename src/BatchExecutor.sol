@@ -7,8 +7,11 @@ import {ERC20Subscription} from "./ERC20Subscription.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 import {Owned} from "solmate/src/auth/Owned.sol";
+import {ERC20Token} from "./ERC20Token.sol";
+import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 
-contract BatchExecutor is IBatchExecutor, Owned {
+/// @author stick
+contract BatchExecutor is IBatchExecutor, Owned, ReentrancyGuard {
     using SafeTransferLib for ERC20;
 
     ERC20Subscription public immutable erc20SubscriptionContract;
@@ -16,22 +19,16 @@ contract BatchExecutor is IBatchExecutor, Owned {
     address public rewardTokenAddress;
     address public treasuryAddress;
 
+    bool rewardTokenAddressSet = false;
+
     // address to claimable tokens
     mapping(address => uint256) public claimableRewards;
 
     uint256 public rewardFactor;
 
-    constructor(
-        ERC20Subscription _erc20SubscriptionContract,
-        address _rewardTokenAddress,
-        uint256 _rewardFactor,
-        address _treasuryAddress,
-        address _owner
-    ) Owned(_owner) {
+    constructor(ERC20Subscription _erc20SubscriptionContract, uint256 _rewardFactor, address _owner) Owned(_owner) {
         erc20SubscriptionContract = _erc20SubscriptionContract;
-        rewardTokenAddress = _rewardTokenAddress;
         rewardFactor = _rewardFactor;
-        treasuryAddress = _treasuryAddress;
     }
 
     function executeBatch(IERC20Subscription.Subscription[] calldata _subscriptions) public override {
@@ -51,17 +48,21 @@ contract BatchExecutor is IBatchExecutor, Owned {
     }
 
     // should have approval from treasuryAddress to transfer rewardToken, otherwise will revert
-    function claimRewards() public override {
+    function claimRewards() public override nonReentrant {
+        if (!rewardTokenAddressSet) revert RewardTokenAddressNotSet();
         uint256 claimableAmount = claimableRewards[msg.sender];
         claimableRewards[msg.sender] = 0;
-        ERC20(rewardTokenAddress).safeTransferFrom(treasuryAddress, msg.sender, claimableAmount);
+
+        ERC20Token(rewardTokenAddress).mint(msg.sender, claimableAmount);
     }
 
     function setRewardFactor(uint256 _rewardFactor) public override onlyOwner {
         rewardFactor = _rewardFactor;
     }
 
-    function setTreasuryAddress(address _treasuryAddress) public override onlyOwner {
-        treasuryAddress = _treasuryAddress;
+    function setRewardTokenAddress(address _rewardTokenAddress) public onlyOwner {
+        if (rewardTokenAddressSet) revert RewardTokenAddressAlreadySet();
+        rewardTokenAddressSet = true;
+        rewardTokenAddress = _rewardTokenAddress;
     }
 }

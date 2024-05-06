@@ -12,3 +12,9 @@ fs_permissions = [{ access = "read-write", path = ".forge-snapshots/"}]
 [profile.integration]
 no_match_path = ""
 match_path = "*/integration/*"
+
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"
+
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }

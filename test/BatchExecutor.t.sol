@@ -15,6 +15,7 @@ import {IERC20Subscription} from "../src/interfaces/IERC20Subscription.sol";
 import {ERC20Subscription} from "../src/ERC20Subscription.sol";
 import {IBatchExecutor} from "../src/interfaces/IBatchExecutor.sol";
 import {BatchExecutor} from "../src/BatchExecutor.sol";
+import {ERC20Token} from "../src/ERC20Token.sol";
 
 contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapshot {
     using AddressBuilder for address[];
@@ -24,13 +25,11 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
 
     ERC20Subscription erc20Subscription;
     BatchExecutor batchExecutor;
+    ERC20Token rewardToken;
 
     address from;
     uint256 fromPrivateKey;
     uint256 defaultAmount = 10 * 1e6;
-
-    address treasury;
-    uint256 treasuryPrivateKey;
 
     address auth;
     uint256 authPrivateKey;
@@ -50,23 +49,21 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         fromPrivateKey = 0x12341234;
         from = vm.addr(fromPrivateKey);
 
-        treasuryPrivateKey = 0x43214321;
-        treasury = vm.addr(treasuryPrivateKey);
-
         authPrivateKey = 0x12345678;
         auth = vm.addr(authPrivateKey);
 
-        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints, auth, treasury);
+        erc20Subscription = new ERC20Subscription(feeRecipient, feeBasisPoints, auth, address0);
         DOMAIN_SEPARATOR = erc20Subscription.DOMAIN_SEPARATOR();
 
         initializeERC20Tokens();
 
         setERC20TestTokens(from);
-        setERC20TestTokens(treasury);
         setERC20TestTokenApprovals(vm, from, address(erc20Subscription));
 
-        batchExecutor = new BatchExecutor(erc20Subscription, address(token1), rewardFactor, treasury, treasury);
-        setERC20TestTokenApprovals(vm, treasury, address(batchExecutor));
+        batchExecutor = new BatchExecutor(erc20Subscription, rewardFactor, address0);
+        rewardToken = new ERC20Token("RewardToken", "REW", 18, address(batchExecutor));
+        vm.prank(address(0));
+        batchExecutor.setRewardTokenAddress(address(rewardToken));
     }
 
     function test_CorrectClaimableAmountAfterSuccessfulExecution() public {
@@ -83,14 +80,12 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         vm.prank(from);
         batchExecutor.executeBatch(subscriptions);
 
-        uint256 startBalanceFrom = token1.balanceOf(from);
-        uint256 startBalanceTreasury = token1.balanceOf(treasury);
+        uint256 startBalanceFrom = rewardToken.balanceOf(from);
 
         vm.prank(from);
         batchExecutor.claimRewards();
 
-        assertEq(token1.balanceOf(from), startBalanceFrom + rewardFactor);
-        assertEq(token1.balanceOf(treasury), startBalanceTreasury - rewardFactor);
+        assertEq(rewardToken.balanceOf(from), startBalanceFrom + rewardFactor);
     }
 
     // tests that a failed  collectPayment will not increase the claimable rewards
@@ -110,13 +105,40 @@ contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapsh
         vm.prank(from);
         batchExecutor.executeBatch(subscriptions);
 
-        uint256 startBalanceFrom = token1.balanceOf(from);
-        uint256 startBalanceTreasury = token1.balanceOf(treasury);
+        uint256 startBalanceFrom = rewardToken.balanceOf(from);
 
         vm.prank(from);
         batchExecutor.claimRewards();
 
-        assertEq(token1.balanceOf(from), startBalanceFrom);
-        assertEq(token1.balanceOf(treasury), startBalanceTreasury);
+        assertEq(rewardToken.balanceOf(from), startBalanceFrom);
+    }
+
+    function testFail_SetRewardTokenAfterItsSet() public {
+        BatchExecutor batchExecutor2 = new BatchExecutor(erc20Subscription, rewardFactor, address0);
+        ERC20Token rewardToken2 = new ERC20Token("RewardToken", "REW", 18, address(batchExecutor2));
+        vm.prank(address(0));
+        batchExecutor2.setRewardTokenAddress(address(rewardToken2));
+        vm.prank(address(0));
+        batchExecutor2.setRewardTokenAddress(address(0));
+    }
+
+    function testFail_CannotClaimUntilRewardTokenSet() public {
+        BatchExecutor batchExecutor2 = new BatchExecutor(erc20Subscription, rewardFactor, address0);
+
+        uint256 salt = 0;
+        uint256 cooldownTime = 0;
+        IERC20Subscription.PermitTransferFrom memory permit =
+            defaultERC20SubscriptionPermit(address(token0), address2, defaultAmount, salt, cooldownTime);
+        bytes memory sig = getPermitERC20SubscriptionSignature(permit, fromPrivateKey, DOMAIN_SEPARATOR);
+        bytes memory authSig = getAuthSignature(sig, authPrivateKey);
+        IERC20Subscription.Subscription[] memory subscriptions = new IERC20Subscription.Subscription[](1);
+        subscriptions[0] =
+            IERC20Subscription.Subscription({owner: from, signature: sig, permit: permit, authSignature: authSig});
+
+        vm.prank(from);
+        batchExecutor2.executeBatch(subscriptions);
+
+        vm.prank(from);
+        batchExecutor2.claimRewards();
     }
 }
