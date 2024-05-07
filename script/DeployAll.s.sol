@@ -54,6 +54,8 @@ contract DeployAll is Script {
         batchExecutor.setRewardTokenAddress(address(erc20Token));
         console2.log("RewardToken Address Set:", address(erc20Token));
 
+        console2.logBytes32(erc20Subscription.DOMAIN_SEPARATOR());
+
         vm.stopBroadcast();
     }
 }

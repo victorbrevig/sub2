@@ -13,6 +13,7 @@ import {StructBuilder} from "./utils/StructBuilder.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {IERC20Subscription} from "../src/interfaces/IERC20Subscription.sol";
 import {ERC20Subscription} from "../src/ERC20Subscription.sol";
+import "forge-std/console2.sol";
 
 contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapshot {
     using AddressBuilder for address[];

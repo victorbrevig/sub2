@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import {Test} from "forge-std/Test.sol";
+import {SafeERC20, IERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {TokenProvider} from "./utils/TokenProvider.sol";
+import {AddressBuilder} from "./utils/AddressBuilder.sol";
+import {AmountBuilder} from "./utils/AmountBuilder.sol";
+import {StructBuilder} from "./utils/StructBuilder.sol";
+import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
+import {IERC20Subscription2} from "../src/interfaces/IERC20Subscription2.sol";
+import {ERC20Subscription2} from "../src/ERC20Subscription2.sol";
+import "forge-std/console2.sol";
+
+contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
+    using AddressBuilder for address[];
+    using AmountBuilder for uint256[];
+
+    event Transfer(address indexed from, address indexed token, address indexed to, uint256 amount);
+
+    ERC20Subscription2 erc20Subscription;
+    ERC20Subscription2 erc20Subscription2;
+
+    address from;
+    uint256 fromPrivateKey;
+
+    address auth;
+    uint256 authPrivateKey;
+
+    uint256 defaultAmount = 10 * 1e6;
+
+    address address0 = address(0x0);
+    address address2 = address(0x2);
+    address executor = address(0x3);
+
+    address treasury = address(0x4);
+    uint16 treasuryFeeBasisPoints = 2000;
+    uint16 executorFeeBasisPoints = 3000;
+
+    function setUp() public {
+        fromPrivateKey = 0x12341234;
+        from = vm.addr(fromPrivateKey);
+
+        authPrivateKey = 0x43214321;
+        auth = vm.addr(authPrivateKey);
+
+        erc20Subscription = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, executorFeeBasisPoints, address2);
+        erc20Subscription2 = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, executorFeeBasisPoints, address2);
+
+        initializeERC20Tokens();
+
+        setERC20TestTokens(from);
+        setERC20TestTokenApprovals(vm, from, address(erc20Subscription));
+        setERC20TestTokenApprovals(vm, from, address(erc20Subscription2));
+    }
+
+    // tests that funds are correctly transferred from the owner to the recipient upon payment for initial payment
+    function test_CreateSubscription() public {
+        address recipient = address2;
+        uint256 cooldownTime = 0;
+
+        uint256 startBalanceFrom = token0.balanceOf(from);
+        uint256 startBalanceTo = token0.balanceOf(address2);
+
+        vm.prank(from);
+        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+
+        uint256 fee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
+        uint256 remaining = defaultAmount - fee;
+        assertEq(defaultAmount, remaining + fee);
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
+        assertEq(token0.balanceOf(address2), startBalanceTo + remaining);
+        assertEq(token0.balanceOf(treasury), fee);
+    }
+
+    function test_RedeemPayment() public {
+        address recipient = address2;
+        uint256 cooldownTime = 0;
+
+        uint256 startBalanceFrom = token0.balanceOf(from);
+        uint256 startBalanceTo = token0.balanceOf(address2);
+
+        uint256 treasuryFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
+        uint256 executorFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.executorFeeBasisPoints());
+
+        vm.prank(from);
+        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+
+        assertEq(token0.balanceOf(executor), 0, "executor balance not 0");
+        assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance too much");
+
+        vm.prank(executor);
+        erc20Subscription.redeemPayment(from, 0, executor);
+
+        uint256 remaining = defaultAmount - treasuryFee - executorFee;
+
+        assertEq(defaultAmount, remaining + treasuryFee + executorFee, "default amount sum");
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2, "from balance");
+        assertEq(token0.balanceOf(address2), startBalanceTo + (defaultAmount - treasuryFee) + remaining, "to balance");
+        assertEq(token0.balanceOf(treasury), treasuryFee * 2, "treasury balance");
+        assertEq(token0.balanceOf(executor), executorFee, "executor balance");
+    }
+
+    function testFail_CollectPaymentBeforeCooldownPassed(uint256 cooldownTime) public {
+        vm.assume(cooldownTime > 0);
+        address recipient = address2;
+
+        vm.warp(1641070800);
+        vm.prank(from);
+        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+
+        vm.warp(1641070800 + cooldownTime - 1);
+        vm.prank(executor);
+        erc20Subscription.redeemPayment(from, 0, executor);
+    }
+
+    function testFail_RedeemingNonExistentSubscription() public {
+        vm.prank(executor);
+        erc20Subscription.redeemPayment(from, 0, executor);
+    }
+
+    function test_CancelSubscription() public {
+        uint256 cooldownTime = 0;
+        vm.prank(from);
+        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+
+        vm.prank(from);
+        erc20Subscription.cancelSubscription(0);
+    }
+
+    function testFail_RedeemingCanceledSubscription() public {
+        uint256 cooldownTime = 0;
+        vm.prank(from);
+        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+
+        vm.prank(from);
+        erc20Subscription.cancelSubscription(0);
+
+        vm.prank(executor);
+        erc20Subscription.redeemPayment(from, 0, executor);
+    }
+
+    function testFail_NotEnoughBalance() public {
+        uint256 cooldownTime = 0;
+        uint256 startBalanceFrom = token0.balanceOf(from);
+        vm.prank(from);
+        erc20Subscription.createSubscription(address2, startBalanceFrom, address(token0), cooldownTime);
+
+        vm.prank(from);
+        erc20Subscription.redeemPayment(from, 0, executor);
+    }
+}
