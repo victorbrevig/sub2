@@ -38,13 +38,13 @@ contract ERC20SubscriptonTest is Test, TokenProvider, GasSnapshot {
     address executor = address(0x5);
 
     uint16 treasuryFeeBasisPoints = 2000;
-    uint16 executorFeeBasisPoints = 3000;
+    uint16 defaultExecutorFeeBasisPoints = 3000;
 
     function setUp() public {
         fromPrivateKey = 0x12341234;
         from = vm.addr(fromPrivateKey);
 
-        erc20Subscription = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, executorFeeBasisPoints, address2);
+        erc20Subscription = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, address2);
 
         initializeERC20Tokens();
 
@@ -61,10 +61,12 @@ contract ERC20SubscriptonTest is Test, TokenProvider, GasSnapshot {
         uint256 startBalanceTo = token0.balanceOf(address2);
 
         uint256 treasuryFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
-        uint256 executorFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.executorFeeBasisPoints());
+        uint256 executorFee = erc20Subscription.calculateFee(defaultAmount, defaultExecutorFeeBasisPoints);
 
         vm.prank(from);
-        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
 
         IBatchExecutor2.ExecuteSubscriptionInput[] memory subscriptionInputs =
             new IBatchExecutor2.ExecuteSubscriptionInput[](1);
@@ -90,11 +92,12 @@ contract ERC20SubscriptonTest is Test, TokenProvider, GasSnapshot {
 
         uint256 treasuryFee =
             erc20Subscription.calculateFee(startBalanceFrom, erc20Subscription.treasuryFeeBasisPoints());
-        uint256 executorFee =
-            erc20Subscription.calculateFee(startBalanceFrom, erc20Subscription.executorFeeBasisPoints());
+        uint256 executorFee = erc20Subscription.calculateFee(startBalanceFrom, defaultExecutorFeeBasisPoints);
 
         vm.prank(from);
-        erc20Subscription.createSubscription(address2, startBalanceFrom, address(token0), cooldownTime);
+        erc20Subscription.createSubscription(
+            address2, startBalanceFrom, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
 
         IBatchExecutor2.ExecuteSubscriptionInput[] memory subscriptionInputs =
             new IBatchExecutor2.ExecuteSubscriptionInput[](1);

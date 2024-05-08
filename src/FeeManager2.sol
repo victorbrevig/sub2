@@ -12,12 +12,9 @@ contract FeeManager2 is IFeeManager2, Owned {
     uint16 public executorFeeBasisPoints;
     address internal treasury;
 
-    constructor(address _owner, address _treasury, uint16 _treasuryFeeBasisPoints, uint16 _executorFeeBasisPoints)
-        Owned(_owner)
-    {
+    constructor(address _owner, address _treasury, uint16 _treasuryFeeBasisPoints) Owned(_owner) {
         treasury = _treasury;
         treasuryFeeBasisPoints = _treasuryFeeBasisPoints;
-        executorFeeBasisPoints = _executorFeeBasisPoints;
     }
 
     // Function to calculate fee and remaining amount
@@ -30,10 +27,6 @@ contract FeeManager2 is IFeeManager2, Owned {
 
     function setTreasuryFeeBasisPoints(uint16 _treasuryFeeBasisPoints) public override onlyOwner {
         treasuryFeeBasisPoints = _treasuryFeeBasisPoints;
-    }
-
-    function setExecutorFeeBasisPoints(uint16 _executorFeeBasisPoints) public override onlyOwner {
-        executorFeeBasisPoints = _executorFeeBasisPoints;
     }
 
     function setTreasury(address _treasury) public override onlyOwner {

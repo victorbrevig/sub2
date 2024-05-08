@@ -9,7 +9,6 @@ import {BatchExecutor2} from "../src/BatchExecutor2.sol";
 contract DeployAll2 is Script {
     address treasury;
     uint16 treasuryBasisPoints;
-    uint16 executorFeeBasisPoints;
     // owner is deployer
     address owner;
 
@@ -17,7 +16,6 @@ contract DeployAll2 is Script {
         // set to treasury
         treasury = 0x84cC05F95B87fd9ba181C43562d89Ea5e605F6D0;
         treasuryBasisPoints = 2000;
-        executorFeeBasisPoints = 3000;
         owner = 0x303cAE9641B868722194Bd9517eaC5ca2ad6e71a;
     }
 
@@ -25,7 +23,7 @@ contract DeployAll2 is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        erc20Subscription = new ERC20Subscription2(treasury, treasuryBasisPoints, executorFeeBasisPoints, owner);
+        erc20Subscription = new ERC20Subscription2(treasury, treasuryBasisPoints, owner);
         console2.log("ERC20Subscription2 Deployed:", address(erc20Subscription));
 
         batchExecutor = new BatchExecutor2(erc20Subscription);

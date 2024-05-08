@@ -35,7 +35,7 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
 
     address treasury = address(0x4);
     uint16 treasuryFeeBasisPoints = 2000;
-    uint16 executorFeeBasisPoints = 3000;
+    uint16 defaultExecutorFeeBasisPoints = 3000;
 
     function setUp() public {
         fromPrivateKey = 0x12341234;
@@ -44,8 +44,8 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
         authPrivateKey = 0x43214321;
         auth = vm.addr(authPrivateKey);
 
-        erc20Subscription = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, executorFeeBasisPoints, address2);
-        erc20Subscription2 = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, executorFeeBasisPoints, address2);
+        erc20Subscription = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, address2);
+        erc20Subscription2 = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, address2);
 
         initializeERC20Tokens();
 
@@ -63,7 +63,9 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
         uint256 startBalanceTo = token0.balanceOf(address2);
 
         vm.prank(from);
-        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
 
         uint256 fee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
         uint256 remaining = defaultAmount - fee;
@@ -81,16 +83,22 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
         uint256 startBalanceTo = token0.balanceOf(address2);
 
         uint256 treasuryFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
-        uint256 executorFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.executorFeeBasisPoints());
+        uint256 executorFee = erc20Subscription.calculateFee(defaultAmount, defaultExecutorFeeBasisPoints);
 
         vm.prank(from);
-        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+        snapStart("createSubscription");
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
+        snapEnd();
 
         assertEq(token0.balanceOf(executor), 0, "executor balance not 0");
         assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance too much");
 
         vm.prank(executor);
+        snapStart("redeemPaymentFirst");
         erc20Subscription.redeemPayment(from, 0, executor);
+        snapEnd();
 
         uint256 remaining = defaultAmount - treasuryFee - executorFee;
 
@@ -107,10 +115,48 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
 
         vm.warp(1641070800);
         vm.prank(from);
-        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
 
         vm.warp(1641070800 + cooldownTime - 1);
         vm.prank(executor);
+        erc20Subscription.redeemPayment(from, 0, executor);
+    }
+
+    function testFail_CollectPaymentBeforeCooldownPassed2(uint256 cooldownTime) public {
+        vm.assume(cooldownTime > 0);
+        vm.assume(1641070800 + cooldownTime * 2 < type(uint256).max);
+        address recipient = address2;
+
+        vm.warp(1641070800);
+        vm.prank(from);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
+
+        vm.warp(1641070800 + cooldownTime);
+        vm.prank(executor);
+        erc20Subscription.redeemPayment(from, 0, executor);
+
+        vm.warp(1641070800 + cooldownTime * 2 - 1);
+        vm.prank(executor);
+        erc20Subscription.redeemPayment(from, 0, executor);
+    }
+
+    function test_CollectPaymentAfterCooldownPassed2(uint256 cooldownTime) public {
+        vm.assume(cooldownTime > 0);
+        vm.assume(1641070800 + cooldownTime * 2 < type(uint256).max);
+        address recipient = address2;
+
+        vm.prank(from);
+        vm.warp(1641070800);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
+
+        vm.prank(executor);
+        vm.warp(1641070800 + cooldownTime);
         erc20Subscription.redeemPayment(from, 0, executor);
     }
 
@@ -122,7 +168,9 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
     function test_CancelSubscription() public {
         uint256 cooldownTime = 0;
         vm.prank(from);
-        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
 
         vm.prank(from);
         erc20Subscription.cancelSubscription(0);
@@ -131,7 +179,9 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
     function testFail_RedeemingCanceledSubscription() public {
         uint256 cooldownTime = 0;
         vm.prank(from);
-        erc20Subscription.createSubscription(address2, defaultAmount, address(token0), cooldownTime);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
 
         vm.prank(from);
         erc20Subscription.cancelSubscription(0);
@@ -144,7 +194,9 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
         uint256 cooldownTime = 0;
         uint256 startBalanceFrom = token0.balanceOf(from);
         vm.prank(from);
-        erc20Subscription.createSubscription(address2, startBalanceFrom, address(token0), cooldownTime);
+        erc20Subscription.createSubscription(
+            address2, startBalanceFrom, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
 
         vm.prank(from);
         erc20Subscription.redeemPayment(from, 0, executor);
