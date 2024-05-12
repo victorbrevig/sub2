@@ -17,7 +17,7 @@ import {IBatchExecutor} from "../src/interfaces/IBatchExecutor.sol";
 import {BatchExecutor} from "../src/BatchExecutor.sol";
 import {ERC20Token} from "../src/ERC20Token.sol";
 
-contract ERC20SubscriptonTest is Test, PermitSignature, TokenProvider, GasSnapshot {
+contract BatchExecutorTest is Test, PermitSignature, TokenProvider, GasSnapshot {
     using AddressBuilder for address[];
     using AmountBuilder for uint256[];
 

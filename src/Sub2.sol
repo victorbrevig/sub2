@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IERC20Subscription2} from "./interfaces/IERC20Subscription2.sol";
+import {ISub2} from "./interfaces/ISub2.sol";
 import {FeeManager2} from "./FeeManager2.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 
-contract ERC20Subscription2 is IERC20Subscription2, FeeManager2, ReentrancyGuard {
+contract Sub2 is ISub2, FeeManager2, ReentrancyGuard {
     using SafeTransferLib for ERC20;
 
     mapping(address => mapping(uint16 => Subscription)) public subscriptions;

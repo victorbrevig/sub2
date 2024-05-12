@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {ERC20Subscription2} from "./ERC20Subscription2.sol";
+import {Sub2} from "./Sub2.sol";
 import {IBatchExecutor2} from "./interfaces/IBatchExecutor2.sol";
 
 /// @author stick
 contract BatchExecutor2 is IBatchExecutor2 {
-    ERC20Subscription2 public immutable erc20SubscriptionContract;
+    Sub2 public immutable erc20SubscriptionContract;
 
-    constructor(ERC20Subscription2 _erc20SubscriptionContract) {
+    constructor(Sub2 _erc20SubscriptionContract) {
         erc20SubscriptionContract = _erc20SubscriptionContract;
     }
 

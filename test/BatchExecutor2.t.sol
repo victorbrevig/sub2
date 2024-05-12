@@ -8,19 +8,19 @@ import {AddressBuilder} from "./utils/AddressBuilder.sol";
 import {AmountBuilder} from "./utils/AmountBuilder.sol";
 import {StructBuilder} from "./utils/StructBuilder.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
-import {IERC20Subscription2} from "../src/interfaces/IERC20Subscription2.sol";
-import {ERC20Subscription2} from "../src/ERC20Subscription2.sol";
+import {ISub2} from "../src/interfaces/ISub2.sol";
+import {Sub2} from "../src/Sub2.sol";
 import {IBatchExecutor2} from "../src/interfaces/IBatchExecutor2.sol";
 import {BatchExecutor2} from "../src/BatchExecutor2.sol";
 import {ERC20Token} from "../src/ERC20Token.sol";
 
-contract ERC20SubscriptonTest is Test, TokenProvider, GasSnapshot {
+contract BatchExecutor2Test is Test, TokenProvider, GasSnapshot {
     using AddressBuilder for address[];
     using AmountBuilder for uint256[];
 
     event Transfer(address indexed from, address indexed token, address indexed to, uint256 amount);
 
-    ERC20Subscription2 erc20Subscription;
+    Sub2 erc20Subscription;
     BatchExecutor2 batchExecutor;
 
     address from;
@@ -44,7 +44,7 @@ contract ERC20SubscriptonTest is Test, TokenProvider, GasSnapshot {
         fromPrivateKey = 0x12341234;
         from = vm.addr(fromPrivateKey);
 
-        erc20Subscription = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, address2);
+        erc20Subscription = new Sub2(treasury, treasuryFeeBasisPoints, address2);
 
         initializeERC20Tokens();
 

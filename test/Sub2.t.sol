@@ -8,18 +8,18 @@ import {AddressBuilder} from "./utils/AddressBuilder.sol";
 import {AmountBuilder} from "./utils/AmountBuilder.sol";
 import {StructBuilder} from "./utils/StructBuilder.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
-import {IERC20Subscription2} from "../src/interfaces/IERC20Subscription2.sol";
-import {ERC20Subscription2} from "../src/ERC20Subscription2.sol";
+import {ISub2} from "../src/interfaces/ISub2.sol";
+import {Sub2} from "../src/Sub2.sol";
 import "forge-std/console2.sol";
 
-contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
+contract Sub2Test is Test, TokenProvider, GasSnapshot {
     using AddressBuilder for address[];
     using AmountBuilder for uint256[];
 
     event Transfer(address indexed from, address indexed token, address indexed to, uint256 amount);
 
-    ERC20Subscription2 erc20Subscription;
-    ERC20Subscription2 erc20Subscription2;
+    Sub2 erc20Subscription;
+    Sub2 erc20Subscription2;
 
     address from;
     uint256 fromPrivateKey;
@@ -44,8 +44,8 @@ contract ERC20Subscripton2Test is Test, TokenProvider, GasSnapshot {
         authPrivateKey = 0x43214321;
         auth = vm.addr(authPrivateKey);
 
-        erc20Subscription = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, address2);
-        erc20Subscription2 = new ERC20Subscription2(treasury, treasuryFeeBasisPoints, address2);
+        erc20Subscription = new Sub2(treasury, treasuryFeeBasisPoints, address2);
+        erc20Subscription2 = new Sub2(treasury, treasuryFeeBasisPoints, address2);
 
         initializeERC20Tokens();
 

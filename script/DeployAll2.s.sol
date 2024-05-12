@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import "forge-std/console2.sol";
 import "forge-std/Script.sol";
-import {ERC20Subscription2} from "../src/ERC20Subscription2.sol";
+import {Sub2} from "../src/Sub2.sol";
 import {BatchExecutor2} from "../src/BatchExecutor2.sol";
 
 contract DeployAll2 is Script {
@@ -19,12 +19,12 @@ contract DeployAll2 is Script {
         owner = 0x303cAE9641B868722194Bd9517eaC5ca2ad6e71a;
     }
 
-    function run() public returns (ERC20Subscription2 erc20Subscription, BatchExecutor2 batchExecutor) {
+    function run() public returns (Sub2 erc20Subscription, BatchExecutor2 batchExecutor) {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        erc20Subscription = new ERC20Subscription2(treasury, treasuryBasisPoints, owner);
-        console2.log("ERC20Subscription2 Deployed:", address(erc20Subscription));
+        erc20Subscription = new Sub2(treasury, treasuryBasisPoints, owner);
+        console2.log("Sub2 Deployed:", address(erc20Subscription));
 
         batchExecutor = new BatchExecutor2(erc20Subscription);
         console2.log("BatchExecutor2 Deployed:", address(batchExecutor));
