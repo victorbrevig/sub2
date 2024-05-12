@@ -25,6 +25,16 @@ contract FeeManager2 is IFeeManager2, Owned {
         return fee;
     }
 
+    function calculateNewAmountFromNewFee(uint256 _currentAmount, uint16 _currentBps, uint16 _newBps)
+        public
+        pure
+        override
+        returns (uint256 newAmount)
+    {
+        newAmount = _currentAmount * (FEE_BASE - _currentBps) / (FEE_BASE - _newBps);
+        return newAmount;
+    }
+
     function setTreasuryFeeBasisPoints(uint16 _treasuryFeeBasisPoints) public override onlyOwner {
         treasuryFeeBasisPoints = _treasuryFeeBasisPoints;
     }
