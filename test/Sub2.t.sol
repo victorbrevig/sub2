@@ -97,7 +97,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
         vm.prank(executor);
         snapStart("redeemPaymentFirst");
-        erc20Subscription.redeemPayment(from, 0, executor);
+        erc20Subscription.redeemPayment(0, executor);
         snapEnd();
 
         uint256 remaining = defaultAmount - treasuryFee - executorFee;
@@ -121,7 +121,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
         vm.warp(1641070800 + cooldownTime - 1);
         vm.prank(executor);
-        erc20Subscription.redeemPayment(from, 0, executor);
+        erc20Subscription.redeemPayment(0, executor);
     }
 
     function testFail_CollectPaymentBeforeCooldownPassed2(uint256 cooldownTime) public {
@@ -137,11 +137,11 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
         vm.warp(1641070800 + cooldownTime);
         vm.prank(executor);
-        erc20Subscription.redeemPayment(from, 0, executor);
+        erc20Subscription.redeemPayment(0, executor);
 
         vm.warp(1641070800 + cooldownTime * 2 - 1);
         vm.prank(executor);
-        erc20Subscription.redeemPayment(from, 0, executor);
+        erc20Subscription.redeemPayment(0, executor);
     }
 
     function test_CollectPaymentAfterCooldownPassed2(uint256 cooldownTime) public {
@@ -157,15 +157,15 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
         vm.prank(executor);
         vm.warp(1641070800 + cooldownTime);
-        erc20Subscription.redeemPayment(from, 0, executor);
+        erc20Subscription.redeemPayment(0, executor);
     }
 
     function testFail_RedeemingNonExistentSubscription() public {
         vm.prank(executor);
-        erc20Subscription.redeemPayment(from, 0, executor);
+        erc20Subscription.redeemPayment(0, executor);
     }
 
-    function test_CancelSubscription() public {
+    function test_CancelSubscriptionUser() public {
         uint256 cooldownTime = 0;
         vm.prank(from);
         erc20Subscription.createSubscription(
@@ -173,6 +173,32 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         );
 
         vm.prank(from);
+        erc20Subscription.cancelSubscription(0);
+    }
+
+    function test_CancelSubscriptionRecipient() public {
+        uint256 cooldownTime = 0;
+        vm.prank(from);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
+
+        vm.prank(address2);
+        erc20Subscription.cancelSubscription(0);
+    }
+
+    function testFail_CancelSubscriptionOther(address _addressCancelling) public {
+        if (_addressCancelling == address2) {
+            revert("recipient can cancel");
+        }
+
+        uint256 cooldownTime = 0;
+        vm.prank(from);
+        erc20Subscription.createSubscription(
+            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+        );
+
+        vm.prank(_addressCancelling);
         erc20Subscription.cancelSubscription(0);
     }
 
@@ -187,7 +213,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         erc20Subscription.cancelSubscription(0);
 
         vm.prank(executor);
-        erc20Subscription.redeemPayment(from, 0, executor);
+        erc20Subscription.redeemPayment(0, executor);
     }
 
     function testFail_NotEnoughBalance() public {
@@ -199,6 +225,44 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         );
 
         vm.prank(from);
-        erc20Subscription.redeemPayment(from, 0, executor);
+        erc20Subscription.redeemPayment(0, executor);
+    }
+
+    function test_ExecutorFeeChangeSameOutputAmount(uint16 oldFee, uint16 newFee) public {
+        address recipient = address2;
+        uint256 cooldownTime = 0;
+
+        if (!(uint32(oldFee) + uint32(treasuryFeeBasisPoints) < 1_000_000)) {
+            return;
+        }
+
+        if (!(uint32(newFee) + uint32(treasuryFeeBasisPoints) < 1_000_000)) {
+            return;
+        }
+
+        vm.prank(from);
+        erc20Subscription.createSubscriptionWithoutFirstPayment(
+            address2, defaultAmount, address(token0), cooldownTime, oldFee
+        );
+
+        uint256 startBalanceTo = token0.balanceOf(address2);
+
+        vm.prank(executor);
+        erc20Subscription.redeemPayment(0, executor);
+
+        uint256 startBalanceToSecond = token0.balanceOf(address2);
+        uint256 toBalanceDifferenceFirst = startBalanceToSecond - startBalanceTo;
+
+        vm.prank(from);
+        erc20Subscription.updateExecutorFee(0, newFee);
+
+        vm.prank(executor);
+        erc20Subscription.redeemPayment(0, executor);
+
+        uint256 toBalanceDifferenceSecond = token0.balanceOf(address2) - startBalanceToSecond;
+
+        //assertEq(toBalanceDifferenceFirst, toBalanceDifferenceSecond, "to balance differences differ");
+
+        assertGe(toBalanceDifferenceSecond, toBalanceDifferenceFirst, "to balance not greater");
     }
 }

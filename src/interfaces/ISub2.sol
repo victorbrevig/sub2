@@ -16,14 +16,16 @@ interface ISub2 {
         uint256 _cooldown,
         uint16 _executorFeeBasisPoints
     ) external;
-    function cancelSubscription(uint16 _subscriptionId) external;
-    function redeemPayment(address _from, uint16 _subscriptionId, address _feeRecipient) external;
-    function updateExecutorFee(uint16 _subscriptionId, uint16 _executorFeeBasisPoints) external;
-    function getSubscriptions(address _user) external view returns (Subscription[] memory);
+    function cancelSubscription(uint256 _subscriptionIndex) external;
+    function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient) external;
+    function updateExecutorFee(uint256 _subscriptionIndex, uint16 _executorFeeBasisPoints) external;
+    function getSubscriptionsSender(address _sender) external view returns (IndexedSubscription[] memory);
+    function getSubscriptionsRecipient(address _recipient) external view returns (IndexedSubscription[] memory);
+    function getNumberOfSubscriptions() external view returns (uint256);
 
-    event SuccessfulPayment(address from, address to, uint256 amount, address token);
-    event SubscriptionCreated(Subscription subscription, uint16 subscriptionId);
-    event SubscriptionCanceled(Subscription subscription, uint16 subscriptionId);
+    event SuccessfulPayment(address indexed from, address indexed to, uint256 amount, address token, uint256 totalFee);
+    event SubscriptionCreated(Subscription subscription);
+    event SubscriptionCanceled(Subscription subscription);
 
     /// @notice Thrown when there has not been enough time past since the last payment
     error NotEnoughTimePast();
@@ -41,16 +43,20 @@ interface ISub2 {
 
     error InvalidFeeBasisPoints();
 
-    event SuccessfulPayment(
-        address from, address to, uint16 nonce, uint256 amount, address token, uint256 totalFeePaid
-    );
+    error NotSenderOrRecipient();
 
     struct Subscription {
+        address sender;
         address recipient;
         uint256 amount;
         address token;
         uint256 cooldown;
         uint256 lastPayment;
         uint16 executorFeeBasisPoints;
+    }
+
+    struct IndexedSubscription {
+        uint256 index;
+        Subscription subscription;
     }
 }

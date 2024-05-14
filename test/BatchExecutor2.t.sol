@@ -68,12 +68,10 @@ contract BatchExecutor2Test is Test, TokenProvider, GasSnapshot {
             address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
         );
 
-        IBatchExecutor2.ExecuteSubscriptionInput[] memory subscriptionInputs =
-            new IBatchExecutor2.ExecuteSubscriptionInput[](1);
-        subscriptionInputs[0] = IBatchExecutor2.ExecuteSubscriptionInput({from: from, nonce: 0, feeRecipient: executor});
-
+        uint256[] memory subscriptionIndices = new uint256[](1);
+        subscriptionIndices.push(0);
         vm.prank(executor);
-        batchExecutor.executeBatch(subscriptionInputs);
+        batchExecutor.executeBatch(subscriptionIndices, address(executor));
 
         uint256 remaining = defaultAmount - treasuryFee - executorFee;
 
@@ -99,12 +97,10 @@ contract BatchExecutor2Test is Test, TokenProvider, GasSnapshot {
             address2, startBalanceFrom, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
         );
 
-        IBatchExecutor2.ExecuteSubscriptionInput[] memory subscriptionInputs =
-            new IBatchExecutor2.ExecuteSubscriptionInput[](1);
-        subscriptionInputs[0] = IBatchExecutor2.ExecuteSubscriptionInput({from: from, nonce: 0, feeRecipient: executor});
-
+        uint256[] memory subscriptionIndices = new uint256[](1);
+        subscriptionIndices.push(0);
         vm.prank(executor);
-        batchExecutor.executeBatch(subscriptionInputs);
+        batchExecutor.executeBatch(subscriptionIndices, address(executor));
 
         assertEq(token0.balanceOf(from), 0, "from balance");
         assertEq(token0.balanceOf(address2), startBalanceFrom - treasuryFee, "to balance");

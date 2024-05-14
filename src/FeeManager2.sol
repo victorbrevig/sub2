@@ -9,7 +9,6 @@ contract FeeManager2 is IFeeManager2, Owned {
 
     // like uniswap, 3000 = 0.3% etc
     uint16 public treasuryFeeBasisPoints;
-    uint16 public executorFeeBasisPoints;
     address internal treasury;
 
     constructor(address _owner, address _treasury, uint16 _treasuryFeeBasisPoints) Owned(_owner) {
@@ -25,13 +24,19 @@ contract FeeManager2 is IFeeManager2, Owned {
         return fee;
     }
 
-    function calculateNewAmountFromNewFee(uint256 _currentAmount, uint16 _currentBps, uint16 _newBps)
-        public
-        pure
-        override
-        returns (uint256 newAmount)
-    {
-        newAmount = _currentAmount * (FEE_BASE - _currentBps) / (FEE_BASE - _newBps);
+    function calculateNewAmountFromNewFee(
+        uint256 _currentAmount,
+        uint16 _currentBps,
+        uint16 _newBps,
+        uint16 _treasuryBps
+    ) public pure override returns (uint256 newAmount) {
+        require(FEE_BASE - _currentBps - _treasuryBps > 0, "numerator is <= 0");
+        require(FEE_BASE - _newBps - _treasuryBps > 0, "denominator is <= 0");
+
+        uint256 numerator = _currentAmount * (FEE_BASE - _currentBps - _treasuryBps);
+        uint256 denominator = (FEE_BASE - _newBps - _treasuryBps);
+
+        newAmount = numerator / denominator;
         return newAmount;
     }
 

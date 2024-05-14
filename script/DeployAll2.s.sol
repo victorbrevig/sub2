@@ -19,14 +19,14 @@ contract DeployAll2 is Script {
         owner = 0x303cAE9641B868722194Bd9517eaC5ca2ad6e71a;
     }
 
-    function run() public returns (Sub2 erc20Subscription, BatchExecutor2 batchExecutor) {
+    function run() public returns (Sub2 sub2, BatchExecutor2 batchExecutor) {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        erc20Subscription = new Sub2(treasury, treasuryBasisPoints, owner);
-        console2.log("Sub2 Deployed:", address(erc20Subscription));
+        sub2 = new Sub2(treasury, treasuryBasisPoints, owner);
+        console2.log("Sub2 Deployed:", address(sub2));
 
-        batchExecutor = new BatchExecutor2(erc20Subscription);
+        batchExecutor = new BatchExecutor2(sub2);
         console2.log("BatchExecutor2 Deployed:", address(batchExecutor));
 
         vm.stopBroadcast();

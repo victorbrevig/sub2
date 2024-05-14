@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface IBatchExecutor2 {
-    struct ExecuteSubscriptionInput {
-        address from;
-        uint16 nonce;
-        address feeRecipient;
-    }
+import {ISub2} from "./ISub2.sol";
 
-    function executeBatch(ExecuteSubscriptionInput[] calldata _subscriptionInputs) external;
+interface IBatchExecutor2 {
+    function executeBatch(uint256[] calldata _subscriptionIndices, address _feeRecipient) external;
+
+    function readSubscriptions(uint256[] calldata _subscriptionIndices)
+        external
+        view
+        returns (ISub2.Subscription[] memory);
 }

@@ -8,8 +8,10 @@ interface IFeeManager2 {
 
     function setTreasuryFeeBasisPoints(uint16 _treasuryFeeBasisPoints) external;
 
-    function calculateNewAmountFromNewFee(uint256 currentAmount, uint16 currentBps, uint16 newBps)
-        external
-        pure
-        returns (uint256 newAmount);
+    function calculateNewAmountFromNewFee(
+        uint256 _currentAmount,
+        uint16 _currentBps,
+        uint16 _newBps,
+        uint16 _treasuryBps
+    ) external pure returns (uint256 newAmount);
 }

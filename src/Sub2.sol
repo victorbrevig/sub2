@@ -10,8 +10,16 @@ import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 contract Sub2 is ISub2, FeeManager2, ReentrancyGuard {
     using SafeTransferLib for ERC20;
 
-    mapping(address => mapping(uint16 => Subscription)) public subscriptions;
-    mapping(address => uint16) public subscriptionNonce;
+    Subscription[] public subscriptions;
+
+    //mapping(address => mapping(uint16 => Subscription)) public subscriptions;
+    mapping(address => mapping(uint16 => uint256)) public userToSubscriptionIndex;
+    mapping(address => uint16) public userSubscriptionNonce;
+
+    mapping(address => mapping(uint16 => uint256)) public recipientToSubscriptionIndex;
+    mapping(address => uint16) public recipientSubscriptionNonce;
+
+    event ExecutorFeeUpdated(uint16 newBasisPoints, uint256 newAmount);
 
     constructor(address _treasury, uint16 _treasuryBasisPoints, address _owner)
         FeeManager2(_owner, _treasury, _treasuryBasisPoints)
@@ -33,10 +41,9 @@ contract Sub2 is ISub2, FeeManager2, ReentrancyGuard {
         // transfer remaining amount
         ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
 
-        uint16 nonce = subscriptionNonce[msg.sender];
-        emit SuccessfulPayment(msg.sender, _recipient, nonce, _amount, _token, protocolFee);
+        emit SuccessfulPayment(msg.sender, _recipient, _amount, _token, protocolFee);
 
-        _createSubscription(_recipient, _amount, _token, _cooldown, _executorFeeBasisPoints, nonce);
+        _createSubscription(_recipient, _amount, _token, _cooldown, _executorFeeBasisPoints);
     }
 
     function createSubscriptionWithoutFirstPayment(
@@ -46,8 +53,7 @@ contract Sub2 is ISub2, FeeManager2, ReentrancyGuard {
         uint256 _cooldown,
         uint16 _executorFeeBasisPoints
     ) public override {
-        uint16 nonce = subscriptionNonce[msg.sender];
-        _createSubscription(_recipient, _amount, _token, _cooldown, _executorFeeBasisPoints, nonce);
+        _createSubscription(_recipient, _amount, _token, _cooldown, _executorFeeBasisPoints);
     }
 
     function _createSubscription(
@@ -55,67 +61,103 @@ contract Sub2 is ISub2, FeeManager2, ReentrancyGuard {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint16 _executorFeeBasisPoints,
-        uint16 _nonce
+        uint16 _executorFeeBasisPoints
     ) private {
         // maybe check for nonce overflows?
-        Subscription memory subscription =
-            Subscription(_recipient, _amount, _token, _cooldown, block.timestamp, _executorFeeBasisPoints);
-        subscriptions[msg.sender][_nonce] = subscription;
-        subscriptionNonce[msg.sender]++;
-        emit SubscriptionCreated(subscription, _nonce);
+        uint256 subscriptionIndex = subscriptions.length;
+        subscriptions.push(
+            Subscription(msg.sender, _recipient, _amount, _token, _cooldown, block.timestamp, _executorFeeBasisPoints)
+        );
+
+        userToSubscriptionIndex[msg.sender][userSubscriptionNonce[msg.sender]] = subscriptionIndex;
+        userSubscriptionNonce[msg.sender]++;
+        recipientToSubscriptionIndex[_recipient][recipientSubscriptionNonce[_recipient]] = subscriptionIndex;
+        recipientSubscriptionNonce[_recipient]++;
+
+        emit SubscriptionCreated(subscriptions[subscriptionIndex]);
     }
 
-    function cancelSubscription(uint16 _subscriptionId) public override {
-        Subscription memory subscription = subscriptions[msg.sender][_subscriptionId];
-        delete subscriptions[msg.sender][_subscriptionId];
-        emit SubscriptionCanceled(subscription, _subscriptionId);
+    function cancelSubscription(uint256 _subscriptionIndex) public override {
+        Subscription memory subscription = subscriptions[_subscriptionIndex];
+        if (subscription.sender != msg.sender && subscription.recipient != msg.sender) revert NotSenderOrRecipient();
+        delete subscriptions[_subscriptionIndex];
+        emit SubscriptionCanceled(subscription);
     }
 
-    function redeemPayment(address _from, uint16 _subscriptionId, address _feeRecipient) public override nonReentrant {
-        uint16 nonce = subscriptionNonce[_from];
-        if (_subscriptionId >= nonce) revert SubscriptionDoesNotExist();
-
-        Subscription storage subscription = subscriptions[_from][_subscriptionId];
+    function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient) public override nonReentrant {
+        Subscription storage subscription = subscriptions[_subscriptionIndex];
 
         // check if subscription exists, it would be set to 0 if delete previously
-        if (subscription.recipient == address(0)) revert SubscriptionIsCanceled();
+        if (subscription.sender == address(0)) revert SubscriptionIsCanceled();
         if (subscription.lastPayment + subscription.cooldown > block.timestamp) revert NotEnoughTimePast();
 
-        subscriptions[_from][_subscriptionId].lastPayment = block.timestamp;
+        subscription.lastPayment = block.timestamp;
 
         uint256 protocolFee = calculateFee(subscription.amount, treasuryFeeBasisPoints);
         uint256 executorFee = calculateFee(subscription.amount, subscription.executorFeeBasisPoints);
-        ERC20(subscription.token).safeTransferFrom(_from, treasury, protocolFee);
+        ERC20(subscription.token).safeTransferFrom(subscription.sender, treasury, protocolFee);
 
-        ERC20(subscription.token).safeTransferFrom(_from, _feeRecipient, executorFee);
+        ERC20(subscription.token).safeTransferFrom(subscription.sender, _feeRecipient, executorFee);
 
         uint256 remainingAmount = subscription.amount - protocolFee - executorFee;
         // transfer remaining amount
-        ERC20(subscription.token).safeTransferFrom(_from, subscription.recipient, remainingAmount);
+        ERC20(subscription.token).safeTransferFrom(subscription.sender, subscription.recipient, remainingAmount);
 
         emit SuccessfulPayment(
-            _from, subscription.recipient, nonce, subscription.amount, subscription.token, protocolFee + executorFee
+            subscription.sender,
+            subscription.recipient,
+            subscription.amount,
+            subscription.token,
+            protocolFee + executorFee
         );
     }
 
-    function updateExecutorFee(uint16 _subscriptionId, uint16 _executorFeeBasisPoints) public {
-        if (_executorFeeBasisPoints + treasuryFeeBasisPoints > FEE_BASE) revert InvalidFeeBasisPoints();
-        uint16 nonce = subscriptionNonce[msg.sender];
-        if (_subscriptionId >= nonce) revert SubscriptionDoesNotExist();
-        if (subscriptions[msg.sender][_subscriptionId].recipient == address(0)) revert SubscriptionIsCanceled();
+    function updateExecutorFee(uint256 _subscriptionIndex, uint16 _executorFeeBasisPoints) public override {
+        if (subscriptions[_subscriptionIndex].recipient == address(0)) revert SubscriptionIsCanceled();
 
-        subscriptions[msg.sender][_subscriptionId].executorFeeBasisPoints = _executorFeeBasisPoints;
+        uint256 newAmount = calculateNewAmountFromNewFee(
+            subscriptions[_subscriptionIndex].amount,
+            subscriptions[_subscriptionIndex].executorFeeBasisPoints,
+            _executorFeeBasisPoints,
+            treasuryFeeBasisPoints
+        );
+
+        subscriptions[_subscriptionIndex].amount = newAmount;
+        subscriptions[_subscriptionIndex].executorFeeBasisPoints = _executorFeeBasisPoints;
+
+        emit ExecutorFeeUpdated(_executorFeeBasisPoints, newAmount);
     }
 
-    function getSubscriptions(address _user) public view returns (Subscription[] memory) {
-        uint16 nonce = subscriptionNonce[_user];
-        Subscription[] memory userSubscriptions = new Subscription[](nonce);
+    function getSubscriptionsSender(address _sender) public view override returns (IndexedSubscription[] memory) {
+        uint16 nonce = userSubscriptionNonce[_sender];
+        IndexedSubscription[] memory userSubscriptions = new IndexedSubscription[](nonce);
 
         for (uint16 i = 0; i < nonce; ++i) {
-            userSubscriptions[i] = subscriptions[_user][i];
+            uint256 index = userToSubscriptionIndex[_sender][i];
+            userSubscriptions[i] = IndexedSubscription({index: index, subscription: subscriptions[index]});
         }
 
         return userSubscriptions;
+    }
+
+    function getSubscriptionsRecipient(address _recipient)
+        public
+        view
+        override
+        returns (IndexedSubscription[] memory)
+    {
+        uint16 nonce = recipientSubscriptionNonce[_recipient];
+        IndexedSubscription[] memory recipientSubscriptions = new IndexedSubscription[](nonce);
+
+        for (uint16 i = 0; i < nonce; ++i) {
+            uint256 index = recipientToSubscriptionIndex[_recipient][i];
+            recipientSubscriptions[i] = IndexedSubscription({index: index, subscription: subscriptions[index]});
+        }
+
+        return recipientSubscriptions;
+    }
+
+    function getNumberOfSubscriptions() public view override returns (uint256) {
+        return subscriptions.length;
     }
 }
