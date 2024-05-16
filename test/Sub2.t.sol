@@ -254,7 +254,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         uint256 toBalanceDifferenceFirst = startBalanceToSecond - startBalanceTo;
 
         vm.prank(from);
-        erc20Subscription.updateExecutorFee(0, newFee);
+        erc20Subscription.updateExecutorFeeSender(0, newFee);
 
         vm.prank(executor);
         erc20Subscription.redeemPayment(0, executor);

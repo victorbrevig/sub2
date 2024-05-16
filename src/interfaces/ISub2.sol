@@ -18,20 +18,34 @@ interface ISub2 {
     ) external;
     function cancelSubscription(uint256 _subscriptionIndex) external;
     function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient) external;
-    function updateExecutorFee(uint256 _subscriptionIndex, uint16 _executorFeeBasisPoints) external;
+    function updateExecutorFeeSender(uint256 _subscriptionIndex, uint16 _executorFeeBasisPoints) external;
+    function updateExecutorFeeRecipient(uint256 _subscriptionIndex, uint16 _executorFeeBasisPoints) external;
     function getSubscriptionsSender(address _sender) external view returns (IndexedSubscription[] memory);
     function getSubscriptionsRecipient(address _recipient) external view returns (IndexedSubscription[] memory);
     function getNumberOfSubscriptions() external view returns (uint256);
+    function prePay(uint256 _subscriptionIndex, uint256 _terms) external;
 
-    event SuccessfulPayment(address indexed from, address indexed to, uint256 amount, address token, uint256 totalFee);
-    event SubscriptionCreated(Subscription subscription);
-    event SubscriptionCanceled(Subscription subscription);
+    event SuccessfulPayment(
+        address indexed from,
+        address indexed to,
+        uint256 indexed subscriptionIndex,
+        uint256 amount,
+        address token,
+        uint256 totalFee,
+        uint256 terms
+    );
+    event SubscriptionCreated(uint256 subscriptionIndex);
+    event SubscriptionCanceled(uint256 subscriptionIndex);
+    event ExecutorFeeUpdated(uint256 subscriptionIndex, uint16 newBasisPoints);
 
     /// @notice Thrown when there has not been enough time past since the last payment
     error NotEnoughTimePast();
 
     /// @notice Thrown when the caller is not the owner of the subscription
     error NotOwnerOfSubscription();
+
+    /// @notice Thrown when the caller is not the recipient of the subscription
+    error NotRecipientOfSubscription();
 
     /// @notice Thrown when the authSignature is not valid
     error InvalidAuthSignature();
