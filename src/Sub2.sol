@@ -2,12 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {ISub2} from "./interfaces/ISub2.sol";
-import {FeeManager2} from "./FeeManager2.sol";
+import {FeeManager} from "./FeeManager.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 
-contract Sub2 is ISub2, FeeManager2, ReentrancyGuard {
+contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
     using SafeTransferLib for ERC20;
 
     Subscription[] public subscriptions;
@@ -20,7 +20,7 @@ contract Sub2 is ISub2, FeeManager2, ReentrancyGuard {
     mapping(address => uint32) public recipientSubscriptionNonce;
 
     constructor(address _treasury, uint16 _treasuryBasisPoints, address _owner)
-        FeeManager2(_owner, _treasury, _treasuryBasisPoints)
+        FeeManager(_owner, _treasury, _treasuryBasisPoints)
     {}
 
     function createSubscription(

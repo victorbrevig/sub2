@@ -6,7 +6,6 @@ import {SafeERC20, IERC20, IERC20Permit} from "openzeppelin-contracts/contracts/
 import {TokenProvider} from "./utils/TokenProvider.sol";
 import {AddressBuilder} from "./utils/AddressBuilder.sol";
 import {AmountBuilder} from "./utils/AmountBuilder.sol";
-import {StructBuilder} from "./utils/StructBuilder.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {ISub2} from "../src/interfaces/ISub2.sol";
 import {Sub2} from "../src/Sub2.sol";
@@ -190,6 +189,9 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     function testFail_CancelSubscriptionOther(address _addressCancelling) public {
         if (_addressCancelling == address2) {
             revert("recipient can cancel");
+        }
+        if (_addressCancelling == from) {
+            revert("sender can cancel");
         }
 
         uint256 cooldownTime = 0;

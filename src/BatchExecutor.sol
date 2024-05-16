@@ -1,68 +1,56 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import {Sub2} from "./Sub2.sol";
 import {IBatchExecutor} from "./interfaces/IBatchExecutor.sol";
-import {IERC20Subscription} from "./interfaces/IERC20Subscription.sol";
-import {ERC20Subscription} from "./ERC20Subscription.sol";
-import {ERC20} from "solmate/src/tokens/ERC20.sol";
-import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
-import {Owned} from "solmate/src/auth/Owned.sol";
-import {ERC20Token} from "./ERC20Token.sol";
-import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
+import {ISub2} from "./interfaces/ISub2.sol";
 
 /// @author stick
-contract BatchExecutor is IBatchExecutor, Owned, ReentrancyGuard {
-    using SafeTransferLib for ERC20;
+contract BatchExecutor is IBatchExecutor {
+    Sub2 public immutable sub2;
 
-    ERC20Subscription public immutable erc20SubscriptionContract;
-
-    address public rewardTokenAddress;
-    address public treasuryAddress;
-
-    bool rewardTokenAddressSet = false;
-
-    // address to claimable tokens
-    mapping(address => uint256) public claimableRewards;
-
-    uint256 public rewardFactor;
-
-    constructor(ERC20Subscription _erc20SubscriptionContract, uint256 _rewardFactor, address _owner) Owned(_owner) {
-        erc20SubscriptionContract = _erc20SubscriptionContract;
-        rewardFactor = _rewardFactor;
+    constructor(Sub2 _erc20SubscriptionContract) {
+        sub2 = _erc20SubscriptionContract;
     }
 
-    function executeBatch(IERC20Subscription.Subscription[] calldata _subscriptions) public override {
-        uint256 successfullPayments = 0;
-        for (uint256 i = 0; i < _subscriptions.length; ++i) {
-            try erc20SubscriptionContract.collectPayment(_subscriptions[i]) {
-                successfullPayments++;
-            } catch (bytes memory revertData) {
-                emit FailedExecution(_subscriptions[i], revertData);
+    event FailedExecution(uint256 subscriptionIndex, bytes revertData);
+
+    function executeBatch(uint256[] calldata _subscriptionIndices, address _feeRecipient) public override {
+        for (uint256 i = 0; i < _subscriptionIndices.length; ++i) {
+            try sub2.redeemPayment(_subscriptionIndices[i], _feeRecipient) {}
+            catch (bytes memory revertData) {
+                emit FailedExecution(_subscriptionIndices[i], revertData);
             }
         }
+    }
 
-        // update claimable tokens depending on successfullPayments
-        if (successfullPayments > 0) {
-            claimableRewards[msg.sender] += successfullPayments * rewardFactor;
+    function readSubscriptions(uint256[] calldata _subscriptionIndices)
+        public
+        view
+        override
+        returns (ISub2.Subscription[] memory)
+    {
+        ISub2.Subscription[] memory subscriptions = new ISub2.Subscription[](_subscriptionIndices.length);
+        for (uint256 i = 0; i < _subscriptionIndices.length; ++i) {
+            (
+                address sender,
+                address recipient,
+                uint256 amount,
+                address token,
+                uint256 cooldown,
+                uint256 lastPayment,
+                uint16 executorFeeBasisPoints
+            ) = sub2.subscriptions(_subscriptionIndices[i]);
+            subscriptions[i] = ISub2.Subscription({
+                sender: sender,
+                recipient: recipient,
+                amount: amount,
+                token: token,
+                cooldown: cooldown,
+                lastPayment: lastPayment,
+                executorFeeBasisPoints: executorFeeBasisPoints
+            });
         }
-    }
-
-    // should have approval from treasuryAddress to transfer rewardToken, otherwise will revert
-    function claimRewards() public override nonReentrant {
-        if (!rewardTokenAddressSet) revert RewardTokenAddressNotSet();
-        uint256 claimableAmount = claimableRewards[msg.sender];
-        claimableRewards[msg.sender] = 0;
-
-        ERC20Token(rewardTokenAddress).mint(msg.sender, claimableAmount);
-    }
-
-    function setRewardFactor(uint256 _rewardFactor) public override onlyOwner {
-        rewardFactor = _rewardFactor;
-    }
-
-    function setRewardTokenAddress(address _rewardTokenAddress) public onlyOwner {
-        if (rewardTokenAddressSet) revert RewardTokenAddressAlreadySet();
-        rewardTokenAddressSet = true;
-        rewardTokenAddress = _rewardTokenAddress;
+        return subscriptions;
     }
 }

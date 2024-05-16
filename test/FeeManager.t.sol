@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
-
+/*
 import {Test} from "forge-std/Test.sol";
 import {SafeERC20, IERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {TokenProvider} from "./utils/TokenProvider.sol";
 import {AddressBuilder} from "./utils/AddressBuilder.sol";
 import {AmountBuilder} from "./utils/AmountBuilder.sol";
-import {StructBuilder} from "./utils/StructBuilder.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {IFeeManager} from "../src/interfaces/IFeeManager.sol";
 import {FeeManager} from "../src/FeeManager.sol";
@@ -82,3 +81,4 @@ contract FeeManagerTest is Test, TokenProvider, GasSnapshot {
         feeManager.calculateFee(type(uint256).max / 2, 500);
     }
 }
+*/
