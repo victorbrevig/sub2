@@ -32,9 +32,11 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     address address2 = address(0x2);
     address executor = address(0x3);
 
+    address recipient = address(0x1);
+
     address treasury = address(0x4);
     uint16 treasuryFeeBasisPoints = 2000;
-    uint16 defaultExecutorFeeBasisPoints = 3000;
+    uint16 defaultMaxExecutorFeeBasisPoints = 3000;
 
     function setUp() public {
         fromPrivateKey = 0x12341234;
@@ -55,39 +57,36 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
     // tests that funds are correctly transferred from the owner to the recipient upon payment for initial payment
     function test_CreateSubscription() public {
-        address recipient = address2;
         uint256 cooldownTime = 0;
 
         uint256 startBalanceFrom = token0.balanceOf(from);
-        uint256 startBalanceTo = token0.balanceOf(address2);
+        uint256 startBalanceTo = token0.balanceOf(recipient);
 
         vm.prank(from);
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
         uint256 fee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
         uint256 remaining = defaultAmount - fee;
         assertEq(defaultAmount, remaining + fee);
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
-        assertEq(token0.balanceOf(address2), startBalanceTo + remaining);
+        assertEq(token0.balanceOf(recipient), startBalanceTo + remaining);
         assertEq(token0.balanceOf(treasury), fee);
     }
 
     function test_RedeemPayment() public {
-        address recipient = address2;
         uint256 cooldownTime = 0;
 
         uint256 startBalanceFrom = token0.balanceOf(from);
-        uint256 startBalanceTo = token0.balanceOf(address2);
+        uint256 startBalanceTo = token0.balanceOf(recipient);
 
         uint256 treasuryFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
-        uint256 executorFee = erc20Subscription.calculateFee(defaultAmount, defaultExecutorFeeBasisPoints);
 
         vm.prank(from);
         snapStart("createSubscription");
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
         snapEnd();
 
@@ -96,26 +95,28 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
         vm.prank(executor);
         snapStart("redeemPaymentFirst");
-        erc20Subscription.redeemPayment(0, executor);
+        (, uint256 executorFeeReceived, uint16 executorFeeBPS,) = erc20Subscription.redeemPayment(0, executor);
         snapEnd();
+
+        uint256 executorFee = erc20Subscription.calculateFee(defaultAmount, executorFeeBPS);
 
         uint256 remaining = defaultAmount - treasuryFee - executorFee;
 
+        assertEq(executorFeeReceived, executorFee, "executor fee mismatch");
         assertEq(defaultAmount, remaining + treasuryFee + executorFee, "default amount sum");
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2, "from balance");
-        assertEq(token0.balanceOf(address2), startBalanceTo + (defaultAmount - treasuryFee) + remaining, "to balance");
+        assertEq(token0.balanceOf(recipient), startBalanceTo + (defaultAmount - treasuryFee) + remaining, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee * 2, "treasury balance");
         assertEq(token0.balanceOf(executor), executorFee, "executor balance");
     }
 
     function testFail_CollectPaymentBeforeCooldownPassed(uint256 cooldownTime) public {
         vm.assume(cooldownTime > 0);
-        address recipient = address2;
 
         vm.warp(1641070800);
         vm.prank(from);
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
         vm.warp(1641070800 + cooldownTime - 1);
@@ -126,12 +127,11 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     function testFail_CollectPaymentBeforeCooldownPassed2(uint256 cooldownTime) public {
         vm.assume(cooldownTime > 0);
         vm.assume(1641070800 + cooldownTime * 2 < type(uint256).max);
-        address recipient = address2;
 
         vm.warp(1641070800);
         vm.prank(from);
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
         vm.warp(1641070800 + cooldownTime);
@@ -146,12 +146,11 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     function test_CollectPaymentAfterCooldownPassed2(uint256 cooldownTime) public {
         vm.assume(cooldownTime > 0);
         vm.assume(1641070800 + cooldownTime * 2 < type(uint256).max);
-        address recipient = address2;
 
         vm.prank(from);
         vm.warp(1641070800);
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
         vm.prank(executor);
@@ -168,7 +167,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         uint256 cooldownTime = 0;
         vm.prank(from);
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
         vm.prank(from);
@@ -179,15 +178,15 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         uint256 cooldownTime = 0;
         vm.prank(from);
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
-        vm.prank(address2);
+        vm.prank(recipient);
         erc20Subscription.cancelSubscription(0);
     }
 
     function testFail_CancelSubscriptionOther(address _addressCancelling) public {
-        if (_addressCancelling == address2) {
+        if (_addressCancelling == recipient) {
             revert("recipient can cancel");
         }
         if (_addressCancelling == from) {
@@ -197,7 +196,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         uint256 cooldownTime = 0;
         vm.prank(from);
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
         vm.prank(_addressCancelling);
@@ -208,7 +207,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         uint256 cooldownTime = 0;
         vm.prank(from);
         erc20Subscription.createSubscription(
-            address2, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
         vm.prank(from);
@@ -223,7 +222,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         uint256 startBalanceFrom = token0.balanceOf(from);
         vm.prank(from);
         erc20Subscription.createSubscription(
-            address2, startBalanceFrom, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, startBalanceFrom, address(token0), cooldownTime, defaultMaxExecutorFeeBasisPoints
         );
 
         vm.prank(from);
@@ -231,7 +230,6 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_ExecutorFeeChangeSameOutputAmount(uint16 oldFee, uint16 newFee) public {
-        address recipient = address2;
         uint256 cooldownTime = 0;
 
         if (!(uint32(oldFee) + uint32(treasuryFeeBasisPoints) < 1_000_000)) {
@@ -241,27 +239,30 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         if (!(uint32(newFee) + uint32(treasuryFeeBasisPoints) < 1_000_000)) {
             return;
         }
-
+        vm.warp(1641070800);
         vm.prank(from);
         erc20Subscription.createSubscriptionWithoutFirstPayment(
-            address2, defaultAmount, address(token0), cooldownTime, oldFee
+            recipient, defaultAmount, address(token0), cooldownTime, oldFee
         );
 
-        uint256 startBalanceTo = token0.balanceOf(address2);
+        uint256 startBalanceTo = token0.balanceOf(recipient);
 
+        vm.warp(1641070800);
         vm.prank(executor);
         erc20Subscription.redeemPayment(0, executor);
 
-        uint256 startBalanceToSecond = token0.balanceOf(address2);
+        uint256 startBalanceToSecond = token0.balanceOf(recipient);
         uint256 toBalanceDifferenceFirst = startBalanceToSecond - startBalanceTo;
 
+        vm.warp(1641070800 + 30 minutes);
         vm.prank(from);
-        erc20Subscription.updateExecutorFeeSender(0, newFee);
+        erc20Subscription.updateMaxExecutorFeeSender(0, newFee);
 
+        vm.warp(1641070800 + 30 minutes);
         vm.prank(executor);
         erc20Subscription.redeemPayment(0, executor);
 
-        uint256 toBalanceDifferenceSecond = token0.balanceOf(address2) - startBalanceToSecond;
+        uint256 toBalanceDifferenceSecond = token0.balanceOf(recipient) - startBalanceToSecond;
 
         //assertEq(toBalanceDifferenceFirst, toBalanceDifferenceSecond, "to balance differences differ");
 

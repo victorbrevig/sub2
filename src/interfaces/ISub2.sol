@@ -17,9 +17,11 @@ interface ISub2 {
         uint16 _executorFeeBasisPoints
     ) external;
     function cancelSubscription(uint256 _subscriptionIndex) external;
-    function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient) external;
-    function updateExecutorFeeSender(uint256 _subscriptionIndex, uint16 _executorFeeBasisPoints) external;
-    function updateExecutorFeeRecipient(uint256 _subscriptionIndex, uint16 _executorFeeBasisPoints) external;
+    function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient)
+        external
+        returns (uint256, uint256, uint16, address);
+    function updateMaxExecutorFeeSender(uint256 _subscriptionIndex, uint16 _maxExecutorFeeBasisPoints) external;
+    function updateMaxExecutorFeeRecipient(uint256 _subscriptionIndex, uint16 _maxExecutorFeeBasisPoints) external;
     function getSubscriptionsSender(address _sender) external view returns (IndexedSubscription[] memory);
     function getSubscriptionsRecipient(address _recipient) external view returns (IndexedSubscription[] memory);
     function getNumberOfSubscriptions() external view returns (uint256);
@@ -59,6 +61,8 @@ interface ISub2 {
 
     error NotSenderOrRecipient();
 
+    error InFeeAuctionPeriod();
+
     struct Subscription {
         address sender;
         address recipient;
@@ -66,7 +70,7 @@ interface ISub2 {
         address token;
         uint256 cooldown;
         uint256 lastPayment;
-        uint16 executorFeeBasisPoints;
+        uint16 maxExecutorFeeBasisPoints;
     }
 
     struct IndexedSubscription {
