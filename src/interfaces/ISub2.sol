@@ -19,9 +19,8 @@ interface ISub2 {
     function cancelSubscription(uint256 _subscriptionIndex) external;
     function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient)
         external
-        returns (uint256, uint256, uint16, address);
-    function updateMaxExecutorFeeSender(uint256 _subscriptionIndex, uint16 _maxExecutorFeeBasisPoints) external;
-    function updateMaxExecutorFeeRecipient(uint256 _subscriptionIndex, uint16 _maxExecutorFeeBasisPoints) external;
+        returns (uint256, uint256, address);
+    function updateMaxExecutorFee(uint256 _subscriptionIndex, uint16 _maxExecutorFeeBasisPoints) external;
     function getSubscriptionsSender(address _sender) external view returns (IndexedSubscription[] memory);
     function getSubscriptionsRecipient(address _recipient) external view returns (IndexedSubscription[] memory);
     function getNumberOfSubscriptions() external view returns (uint256);

@@ -16,7 +16,6 @@ interface IBatchExecutor {
     struct Receipt {
         uint256 subscriptionIndex;
         uint256 executorFee;
-        uint256 executorFeeBSP;
         address token;
     }
 }

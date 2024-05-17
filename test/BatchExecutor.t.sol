@@ -76,35 +76,38 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         uint256 executorFee = receipts[0].executorFee;
         uint256 remaining = defaultAmount - treasuryFee - executorFee;
 
-        assertEq(defaultAmount, remaining + treasuryFee + executorFee, "default amount sum");
-        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2, "from balance");
-        assertEq(token0.balanceOf(recipient), startBalanceTo + (defaultAmount - treasuryFee) + remaining, "to balance");
+        assertEq(
+            token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - treasuryFee * 2 - executorFee, "from balance"
+        );
+        assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount * 2, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee * 2, "treasury balance");
         assertEq(token0.balanceOf(executor), executorFee, "executor balance");
     }
 
     function test_CorrectClaimableAmountAfterUnsuccessfulExecution() public {
-        uint256 cooldownTime = 0;
+        // execution will revert since cooldown has not passed
+        uint256 cooldownTime = 10;
 
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
-        uint256 treasuryFee =
-            erc20Subscription.calculateFee(startBalanceFrom, erc20Subscription.treasuryFeeBasisPoints());
-        uint256 executorFee = erc20Subscription.calculateFee(startBalanceFrom, defaultExecutorFeeBasisPoints);
+        uint256 treasuryFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
 
+        vm.warp(1641070800);
         vm.prank(from);
         erc20Subscription.createSubscription(
-            recipient, startBalanceFrom, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
         );
 
         uint256[] memory subscriptionIndices = new uint256[](1);
         subscriptionIndices.push(0);
+
+        vm.warp(1641070800 + 5);
         vm.prank(executor);
         batchExecutor.executeBatch(subscriptionIndices, address(executor));
 
-        assertEq(token0.balanceOf(from), 0, "from balance");
-        assertEq(token0.balanceOf(recipient), startBalanceFrom - treasuryFee, "to balance");
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount - treasuryFee, "from balance");
+        assertEq(token0.balanceOf(recipient), defaultAmount, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance");
         assertEq(token0.balanceOf(executor), 0, "executor balance");
     }
