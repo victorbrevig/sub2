@@ -22,10 +22,9 @@ contract BatchExecutor is IBatchExecutor {
     {
         Receipt[] memory receipts = new Receipt[](_subscriptionIndices.length);
         for (uint256 i = 0; i < _subscriptionIndices.length; ++i) {
-            try sub2.redeemPayment(_subscriptionIndices[i], _feeRecipient) returns (
-                uint256 subscriptionIndex, uint256 executorFee, address token
-            ) {
-                receipts[i] = Receipt({subscriptionIndex: subscriptionIndex, executorFee: executorFee, token: token});
+            try sub2.redeemPayment(_subscriptionIndices[i], _feeRecipient) returns (uint256 executorFee, address token)
+            {
+                receipts[i] = Receipt({subscriptionIndex: i, executorFee: executorFee, token: token});
             } catch (bytes memory revertData) {
                 emit FailedExecution(_subscriptionIndices[i], revertData);
             }

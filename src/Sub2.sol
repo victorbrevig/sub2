@@ -30,8 +30,8 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint16 _executorFeeBasisPoints
-    ) public override {
+        uint16 _maxExecutorFeeBasisPoints
+    ) public override returns (uint256 subscriptionIndex) {
         // first send the transaction
         // fee is calculated based on the amount
         uint256 protocolFee = calculateFee(_amount, treasuryFeeBasisPoints);
@@ -42,19 +42,23 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         // transfer amount
         ERC20(_token).safeTransferFrom(msg.sender, _recipient, _amount);
 
-        uint256 subscriptionIndex = _createSubscription(_recipient, _amount, _token, _cooldown, _executorFeeBasisPoints);
+        subscriptionIndex =
+            _createSubscription(_recipient, _amount, _token, _cooldown, _maxExecutorFeeBasisPoints, _cooldown);
 
         emit SuccessfulPayment(msg.sender, _recipient, subscriptionIndex, _amount, _token, protocolFee, 1);
+
+        return subscriptionIndex;
     }
 
-    function createSubscriptionWithoutFirstPayment(
+    function createSubscriptionWithDelay(
         address _recipient,
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint16 _executorFeeBasisPoints
-    ) public override {
-        _createSubscription(_recipient, _amount, _token, _cooldown, _executorFeeBasisPoints);
+        uint16 _maxExecutorFeeBasisPoints,
+        uint256 _delay
+    ) public override returns (uint256 subscriptionIndex) {
+        return _createSubscription(_recipient, _amount, _token, _cooldown, _maxExecutorFeeBasisPoints, _delay);
     }
 
     function _createSubscription(
@@ -62,11 +66,20 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint16 _executorFeeBasisPoints
+        uint16 _maxExecutorFeeBasisPoints,
+        uint256 _delay
     ) private returns (uint256) {
         uint256 subscriptionIndex = subscriptions.length;
         subscriptions.push(
-            Subscription(msg.sender, _recipient, _amount, _token, _cooldown, block.timestamp, _executorFeeBasisPoints)
+            Subscription(
+                msg.sender,
+                _recipient,
+                _amount,
+                _token,
+                _cooldown,
+                block.timestamp - _cooldown + _delay,
+                _maxExecutorFeeBasisPoints
+            )
         );
 
         userToSubscriptionIndex[msg.sender][userSubscriptionNonce[msg.sender]] = subscriptionIndex;
@@ -91,8 +104,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
     function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient)
         public
         override
-        nonReentrant
-        returns (uint256, uint256, address)
+        returns (uint256 executorFee, address token)
     {
         Subscription storage subscription = subscriptions[_subscriptionIndex];
 
@@ -114,7 +126,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         require(executorFeeBPS <= subscription.maxExecutorFeeBasisPoints, "Invalid fee basis points");
 
         uint256 protocolFee = calculateFee(subscription.amount, treasuryFeeBasisPoints);
-        uint256 executorFee = calculateFee(subscription.amount, castExecutorFeeBPS);
+        executorFee = calculateFee(subscription.amount, castExecutorFeeBPS);
 
         subscription.lastPayment = block.timestamp;
 
@@ -137,13 +149,13 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
             1
         );
 
-        return (_subscriptionIndex, executorFee, subscription.token);
+        return (executorFee, subscription.token);
     }
 
     function updateMaxExecutorFee(uint256 _subscriptionIndex, uint16 _maxExecutorFeeBasisPoints) public override {
         Subscription storage subscription = subscriptions[_subscriptionIndex];
         if (subscription.sender != msg.sender) revert NotOwnerOfSubscription();
-        if (subscription.recipient == address(0)) revert SubscriptionIsCanceled();
+        if (subscription.sender == address(0)) revert SubscriptionIsCanceled();
         if (_maxExecutorFeeBasisPoints > FEE_BASE) revert InvalidFeeBasisPoints();
         if (
             block.timestamp >= subscription.lastPayment + subscription.cooldown
@@ -191,16 +203,15 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
     function prePay(uint256 _subscriptionIndex, uint256 _terms) public override {
         Subscription storage subscription = subscriptions[_subscriptionIndex];
         if (subscription.sender != msg.sender) revert NotOwnerOfSubscription();
-        if (subscription.recipient == address(0)) revert SubscriptionIsCanceled();
+        if (subscription.sender == address(0)) revert SubscriptionIsCanceled();
+
+        subscription.lastPayment = block.timestamp + subscription.cooldown * _terms;
 
         uint256 totalAmount = subscription.amount * _terms;
-
         uint256 protocolFee = calculateFee(totalAmount, treasuryFeeBasisPoints);
 
         ERC20(subscription.token).safeTransferFrom(msg.sender, treasury, protocolFee);
         ERC20(subscription.token).safeTransferFrom(msg.sender, subscription.recipient, totalAmount);
-
-        subscription.lastPayment = block.timestamp + subscription.cooldown * _terms;
 
         emit SuccessfulPayment(
             msg.sender, subscription.recipient, _subscriptionIndex, totalAmount, subscription.token, protocolFee, _terms

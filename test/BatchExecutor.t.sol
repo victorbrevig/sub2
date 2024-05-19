@@ -74,7 +74,6 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         IBatchExecutor.Receipt[] memory receipts = batchExecutor.executeBatch(subscriptionIndices, address(executor));
 
         uint256 executorFee = receipts[0].executorFee;
-        uint256 remaining = defaultAmount - treasuryFee - executorFee;
 
         assertEq(
             token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - treasuryFee * 2 - executorFee, "from balance"
@@ -89,7 +88,6 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         uint256 cooldownTime = 10;
 
         uint256 startBalanceFrom = token0.balanceOf(from);
-        uint256 startBalanceTo = token0.balanceOf(recipient);
 
         uint256 treasuryFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
 

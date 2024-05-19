@@ -24,22 +24,6 @@ contract FeeManager is IFeeManager, Owned {
         return fee;
     }
 
-    function calculateNewAmountFromNewFee(
-        uint256 _currentAmount,
-        uint16 _currentBps,
-        uint16 _newBps,
-        uint16 _treasuryBps
-    ) public pure override returns (uint256 newAmount) {
-        require(FEE_BASE - _currentBps - _treasuryBps > 0, "numerator is <= 0");
-        require(FEE_BASE - _newBps - _treasuryBps > 0, "denominator is <= 0");
-
-        uint256 numerator = _currentAmount * (FEE_BASE - _currentBps - _treasuryBps);
-        uint256 denominator = (FEE_BASE - _newBps - _treasuryBps);
-
-        newAmount = numerator / denominator;
-        return newAmount;
-    }
-
     function setTreasuryFeeBasisPoints(uint16 _treasuryFeeBasisPoints) public override onlyOwner {
         treasuryFeeBasisPoints = _treasuryFeeBasisPoints;
     }
