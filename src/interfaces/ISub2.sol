@@ -3,26 +3,31 @@ pragma solidity ^0.8.0;
 
 interface ISub2 {
     /// @dev Requires that the msg.sender has approved the contract for the amount of tokens.
+    /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This can cause unexpected reverts if the same index is used at the same time. type(uint256).max can be used to always ensure a new subscription slot is created.
     /// @param _recipient Recipient of the subscription.
     /// @param _amount Amount of tokens that the recipient will receive.
     /// @param _token Address of ERC20 token that will be used for the subscription.
     /// @param _cooldown Amount of time in seconds that must pass between payments.
     /// @param _maxExecutorFeeBasisPoints The maximum fee in basis points (e.g. 3000 = 0.3%) that an executor can charge.
+    /// @param _index The index of the subscription created in Subscriptions.
     /// @return subscriptionIndex The index of the subscription created in Subscriptions.
     function createSubscription(
         address _recipient,
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint16 _maxExecutorFeeBasisPoints
+        uint16 _maxExecutorFeeBasisPoints,
+        uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
+    /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This can cause unexpected reverts if the same index is used at the same time. type(uint256).max can be used to always ensure a new subscription slot is created.
     /// @param _recipient Recipient of the subscription
     /// @param _amount Amount of tokens that the recipient will receive
     /// @param _token Address of ERC20 token that will be used for the subscription
     /// @param _cooldown Amount of time in seconds that must pass between payments
     /// @param _maxExecutorFeeBasisPoints The maximum fee in basis points (e.g. 3000 = 0.3%) that an executor can charge
     /// @param _delay Amount of time in seconds that must pass before the first payment
+    /// @param _index The index of the subscription created in Subscriptions.
     /// @return subscriptionIndex The index of the subscription created in Subscriptions
     function createSubscriptionWithDelay(
         address _recipient,
@@ -30,7 +35,8 @@ interface ISub2 {
         address _token,
         uint256 _cooldown,
         uint16 _maxExecutorFeeBasisPoints,
-        uint256 _delay
+        uint256 _delay,
+        uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
     /// @notice Can be called by both the sender and the recipient.
@@ -98,6 +104,9 @@ interface ISub2 {
 
     /// @notice Thrown when the subscription is in auction period
     error InFeeAuctionPeriod();
+
+    /// @notice Thrown when a subscription aldready exists at index
+    error SubscriptionAlreadyExists();
 
     struct Subscription {
         address sender;

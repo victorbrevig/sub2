@@ -30,7 +30,8 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint16 _maxExecutorFeeBasisPoints
+        uint16 _maxExecutorFeeBasisPoints,
+        uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
         // first send the transaction
         // fee is calculated based on the amount
@@ -43,7 +44,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         ERC20(_token).safeTransferFrom(msg.sender, _recipient, _amount);
 
         subscriptionIndex =
-            _createSubscription(_recipient, _amount, _token, _cooldown, _maxExecutorFeeBasisPoints, _cooldown);
+            _createSubscription(_recipient, _amount, _token, _cooldown, _maxExecutorFeeBasisPoints, _cooldown, _index);
 
         emit SuccessfulPayment(msg.sender, _recipient, subscriptionIndex, _amount, _token, protocolFee, 1);
 
@@ -56,9 +57,10 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         address _token,
         uint256 _cooldown,
         uint16 _maxExecutorFeeBasisPoints,
-        uint256 _delay
+        uint256 _delay,
+        uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
-        return _createSubscription(_recipient, _amount, _token, _cooldown, _maxExecutorFeeBasisPoints, _delay);
+        return _createSubscription(_recipient, _amount, _token, _cooldown, _maxExecutorFeeBasisPoints, _delay, _index);
     }
 
     function _createSubscription(
@@ -67,20 +69,38 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         address _token,
         uint256 _cooldown,
         uint16 _maxExecutorFeeBasisPoints,
-        uint256 _delay
-    ) private returns (uint256) {
-        uint256 subscriptionIndex = subscriptions.length;
-        subscriptions.push(
-            Subscription(
-                msg.sender,
-                _recipient,
-                _amount,
-                _token,
-                _cooldown,
-                block.timestamp - _cooldown + _delay,
-                _maxExecutorFeeBasisPoints
-            )
-        );
+        uint256 _delay,
+        uint256 _index
+    ) private returns (uint256 subscriptionIndex) {
+        subscriptionIndex = subscriptions.length;
+
+        if (_index < subscriptionIndex) {
+            Subscription storage subscription = subscriptions[_index];
+            if (subscription.sender != address(0)) revert SubscriptionAlreadyExists();
+            Subscription memory newSubscription = Subscription({
+                sender: msg.sender,
+                recipient: _recipient,
+                amount: _amount,
+                token: _token,
+                cooldown: _cooldown,
+                lastPayment: block.timestamp - _cooldown + _delay,
+                maxExecutorFeeBasisPoints: _maxExecutorFeeBasisPoints
+            });
+            subscriptionIndex = _index;
+            subscriptions[subscriptionIndex] = newSubscription;
+        } else {
+            subscriptions.push(
+                Subscription(
+                    msg.sender,
+                    _recipient,
+                    _amount,
+                    _token,
+                    _cooldown,
+                    block.timestamp - _cooldown + _delay,
+                    _maxExecutorFeeBasisPoints
+                )
+            );
+        }
 
         userToSubscriptionIndex[msg.sender][userSubscriptionNonce[msg.sender]] = subscriptionIndex;
         userSubscriptionNonce[msg.sender]++;

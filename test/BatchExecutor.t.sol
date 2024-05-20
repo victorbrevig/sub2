@@ -41,6 +41,8 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
     uint16 treasuryFeeBasisPoints = 2000;
     uint16 defaultExecutorFeeBasisPoints = 3000;
 
+    uint256 defaultIndex = type(uint256).max;
+
     function setUp() public {
         fromPrivateKey = 0x12341234;
         from = vm.addr(fromPrivateKey);
@@ -65,7 +67,7 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
 
         vm.prank(from);
         erc20Subscription.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints, defaultIndex
         );
 
         uint256[] memory subscriptionIndices = new uint256[](1);
@@ -94,7 +96,7 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         vm.warp(1641070800);
         vm.prank(from);
         erc20Subscription.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints
+            recipient, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints, defaultIndex
         );
 
         uint256[] memory subscriptionIndices = new uint256[](1);
