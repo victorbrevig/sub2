@@ -8,7 +8,8 @@ interface ISub2 {
     /// @param _amount Amount of tokens that the recipient will receive.
     /// @param _token Address of ERC20 token that will be used for the subscription.
     /// @param _cooldown Amount of time in seconds that must pass between payments.
-    /// @param _maxExecutorFeeBasisPoints The maximum fee in basis points (e.g. 3000 = 0.3%) that an executor can charge.
+    /// @param _maxTip The maximum amount of _timToken that can be sent as a tip to an executor.
+    /// @param _tipToken Address of ERC20 token that will be used for the tip.
     /// @param _index The index of the subscription created in Subscriptions.
     /// @return subscriptionIndex The index of the subscription created in Subscriptions.
     function createSubscription(
@@ -16,26 +17,51 @@ interface ISub2 {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint16 _maxExecutorFeeBasisPoints,
+        uint256 _maxTip,
+        address _tipToken,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
     /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This can cause unexpected reverts if the same index is used at the same time. type(uint256).max can be used to always ensure a new subscription slot is created.
-    /// @param _recipient Recipient of the subscription
-    /// @param _amount Amount of tokens that the recipient will receive
-    /// @param _token Address of ERC20 token that will be used for the subscription
-    /// @param _cooldown Amount of time in seconds that must pass between payments
-    /// @param _maxExecutorFeeBasisPoints The maximum fee in basis points (e.g. 3000 = 0.3%) that an executor can charge
-    /// @param _delay Amount of time in seconds that must pass before the first payment
+    /// @param _recipient Recipient of the subscription.
+    /// @param _amount Amount of tokens that the recipient will receive.
+    /// @param _token Address of ERC20 token that will be used for the subscription.
+    /// @param _cooldown Amount of time in seconds that must pass between payments.
+    /// @param _maxTip The maximum amount of _timToken that can be sent as a tip to an executor.
+    /// @param _tipToken Address of ERC20 token that will be used for the tip.
+    /// @param _delay Amount of time in seconds that must pass before the first payment.
     /// @param _index The index of the subscription created in Subscriptions.
-    /// @return subscriptionIndex The index of the subscription created in Subscriptions
+    /// @return subscriptionIndex The index of the subscription created in Subscriptions.
     function createSubscriptionWithDelay(
         address _recipient,
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint16 _maxExecutorFeeBasisPoints,
+        uint256 _maxTip,
+        address _tipToken,
         uint256 _delay,
+        uint256 _index
+    ) external returns (uint256 subscriptionIndex);
+
+    /// @dev Requires that the msg.sender has approved the contract for the amount of tokens.
+    /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This can cause unexpected reverts if the same index is used at the same time. type(uint256).max can be used to always ensure a new subscription slot is created.
+    /// @param _recipient Recipient of the subscription.
+    /// @param _amount Amount of tokens that the recipient will receive.
+    /// @param _token Address of ERC20 token that will be used for the subscription.
+    /// @param _cooldown Amount of time in seconds that must pass between payments.
+    /// @param _maxTip The maximum amount of _timToken that can be sent as a tip to an executor.
+    /// @param _tipToken Address of ERC20 token that will be used for the tip.
+    /// @param _terms The number of terms to prepay.
+    /// @param _index The index of the subscription created in Subscriptions.
+    /// @return subscriptionIndex The index of the subscription created in Subscriptions.
+    function createSubscriptionWithPrepaidTerms(
+        address _recipient,
+        uint256 _amount,
+        address _token,
+        uint256 _cooldown,
+        uint256 _maxTip,
+        address _tipToken,
+        uint256 _terms,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
@@ -45,16 +71,17 @@ interface ISub2 {
 
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to redeem.
     /// @param _feeRecipient The address that will receive the executor fee.
-    /// @return executorFee The the total amount of tokens claimed by the executor.
-    /// @return token The address of the token that was redeemed.
+    /// @return executorTip The the total amount of tokens claimed by the executor.
+    /// @return tipToken The address of the tip of the subscription that was redeemed.
     function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient)
         external
-        returns (uint256 executorFee, address token);
+        returns (uint256 executorTip, address tipToken);
 
     /// @notice Can only be called by the owner of the subscription.
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to update.
-    /// @param _maxExecutorFeeBasisPoints The new maximum fee in basis points (e.g. 3000 = 0.3%) that an executor can charge.
-    function updateMaxExecutorFee(uint256 _subscriptionIndex, uint16 _maxExecutorFeeBasisPoints) external;
+    /// @param _maxTip The new maximum tip of tokens to be claimed by an executor.
+    /// @param _tipToken The new token to be used for the tip.
+    function updateMaxTip(uint256 _subscriptionIndex, uint256 _maxTip, address _tipToken) external;
 
     function getSubscriptionsSender(address _sender) external view returns (IndexedSubscription[] memory);
     function getSubscriptionsRecipient(address _recipient) external view returns (IndexedSubscription[] memory);
@@ -71,12 +98,14 @@ interface ISub2 {
         uint256 indexed subscriptionIndex,
         uint256 amount,
         address token,
-        uint256 totalFee,
+        uint256 protocolFee,
+        uint256 executorTip,
+        address tipToken,
         uint256 terms
     );
     event SubscriptionCreated(uint256 subscriptionIndex);
     event SubscriptionCanceled(uint256 subscriptionIndex);
-    event ExecutorFeeUpdated(uint256 subscriptionIndex, uint16 newBasisPoints);
+    event MaxTipUpdated(uint256 subscriptionIndex, uint256 maxTip, address tipToken);
 
     /// @notice Thrown when there has not been enough time past since the last payment
     error NotEnoughTimePast();
@@ -115,7 +144,8 @@ interface ISub2 {
         address token;
         uint256 cooldown;
         uint256 lastPayment;
-        uint16 maxExecutorFeeBasisPoints;
+        uint256 maxTip;
+        address tipToken;
     }
 
     struct IndexedSubscription {

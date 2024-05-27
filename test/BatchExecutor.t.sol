@@ -39,7 +39,10 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
     address executor = address(0x5);
 
     uint16 treasuryFeeBasisPoints = 2000;
-    uint16 defaultExecutorFeeBasisPoints = 3000;
+
+    uint256 defaultTip = 10 * 1e5;
+
+    address defaultTipToken;
 
     uint256 defaultIndex = type(uint256).max;
 
@@ -54,6 +57,8 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         setERC20TestTokens(from);
         setERC20TestTokenApprovals(vm, from, address(erc20Subscription));
 
+        defaultTipToken = address(token0);
+
         batchExecutor = new BatchExecutor(erc20Subscription);
     }
 
@@ -67,7 +72,7 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
 
         vm.prank(from);
         erc20Subscription.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints, defaultIndex
+            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
         );
 
         uint256[] memory subscriptionIndices = new uint256[](1);
@@ -75,14 +80,12 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         vm.prank(executor);
         IBatchExecutor.Receipt[] memory receipts = batchExecutor.executeBatch(subscriptionIndices, address(executor));
 
-        uint256 executorFee = receipts[0].executorFee;
+        uint256 executorTip = receipts[0].executorTip;
 
-        assertEq(
-            token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - treasuryFee * 2 - executorFee, "from balance"
-        );
-        assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount * 2, "to balance");
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - executorTip, "from balance");
+        assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount * 2 - treasuryFee * 2, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee * 2, "treasury balance");
-        assertEq(token0.balanceOf(executor), executorFee, "executor balance");
+        assertEq(token0.balanceOf(executor), executorTip, "executor balance");
     }
 
     function test_CorrectClaimableAmountAfterUnsuccessfulExecution() public {
@@ -96,7 +99,7 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         vm.warp(1641070800);
         vm.prank(from);
         erc20Subscription.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultExecutorFeeBasisPoints, defaultIndex
+            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
         );
 
         uint256[] memory subscriptionIndices = new uint256[](1);
@@ -106,8 +109,8 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         vm.prank(executor);
         batchExecutor.executeBatch(subscriptionIndices, address(executor));
 
-        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount - treasuryFee, "from balance");
-        assertEq(token0.balanceOf(recipient), defaultAmount, "to balance");
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount, "from balance");
+        assertEq(token0.balanceOf(recipient), defaultAmount - treasuryFee, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance");
         assertEq(token0.balanceOf(executor), 0, "executor balance");
     }

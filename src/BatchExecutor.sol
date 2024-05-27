@@ -22,9 +22,10 @@ contract BatchExecutor is IBatchExecutor {
     {
         Receipt[] memory receipts = new Receipt[](_subscriptionIndices.length);
         for (uint256 i = 0; i < _subscriptionIndices.length; ++i) {
-            try sub2.redeemPayment(_subscriptionIndices[i], _feeRecipient) returns (uint256 executorFee, address token)
-            {
-                receipts[i] = Receipt({subscriptionIndex: i, executorFee: executorFee, token: token});
+            try sub2.redeemPayment(_subscriptionIndices[i], _feeRecipient) returns (
+                uint256 executorTip, address tipToken
+            ) {
+                receipts[i] = Receipt({subscriptionIndex: i, executorTip: executorTip, tipToken: tipToken});
             } catch (bytes memory revertData) {
                 emit FailedExecution(_subscriptionIndices[i], revertData);
             }
@@ -47,7 +48,8 @@ contract BatchExecutor is IBatchExecutor {
                 address token,
                 uint256 cooldown,
                 uint256 lastPayment,
-                uint16 maxExecutorFeeBasisPoints
+                uint256 maxTip,
+                address tipToken
             ) = sub2.subscriptions(_subscriptionIndices[i]);
             subscriptions[i] = ISub2.Subscription({
                 sender: sender,
@@ -56,7 +58,8 @@ contract BatchExecutor is IBatchExecutor {
                 token: token,
                 cooldown: cooldown,
                 lastPayment: lastPayment,
-                maxExecutorFeeBasisPoints: maxExecutorFeeBasisPoints
+                maxTip: maxTip,
+                tipToken: tipToken
             });
         }
         return subscriptions;
