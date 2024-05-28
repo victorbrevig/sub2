@@ -42,6 +42,9 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
 
     uint256 defaultTip = 10 * 1e5;
 
+    uint256 defaultCooldown = 1800;
+    uint256 defaultAuctionTime = 1800;
+
     address defaultTipToken;
 
     uint256 defaultIndex = type(uint256).max;
@@ -63,21 +66,28 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
     }
 
     function test_CorrectClaimableAmountAfterSuccessfulExecution() public {
-        uint256 cooldownTime = 0;
-
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
         uint256 treasuryFee = erc20Subscription.calculateFee(defaultAmount, erc20Subscription.treasuryFeeBasisPoints());
 
         vm.prank(from);
+        vm.warp(1641070800);
         erc20Subscription.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         uint256[] memory subscriptionIndices = new uint256[](1);
         subscriptionIndices.push(0);
         vm.prank(executor);
+        vm.warp(1641070800 + defaultCooldown);
         IBatchExecutor.Receipt[] memory receipts = batchExecutor.executeBatch(subscriptionIndices, address(executor));
 
         uint256 executorTip = receipts[0].executorTip;
@@ -90,7 +100,6 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
 
     function test_CorrectClaimableAmountAfterUnsuccessfulExecution() public {
         // execution will revert since cooldown has not passed
-        uint256 cooldownTime = 10;
 
         uint256 startBalanceFrom = token0.balanceOf(from);
 
@@ -99,13 +108,20 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         vm.warp(1641070800);
         vm.prank(from);
         erc20Subscription.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         uint256[] memory subscriptionIndices = new uint256[](1);
         subscriptionIndices.push(0);
 
-        vm.warp(1641070800 + 5);
+        vm.warp(1641070800 + defaultCooldown - 1);
         vm.prank(executor);
         batchExecutor.executeBatch(subscriptionIndices, address(executor));
 

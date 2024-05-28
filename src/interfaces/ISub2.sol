@@ -19,6 +19,7 @@ interface ISub2 {
         uint256 _cooldown,
         uint256 _maxTip,
         address _tipToken,
+        uint256 _auctionDuration,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
@@ -40,6 +41,7 @@ interface ISub2 {
         uint256 _maxTip,
         address _tipToken,
         uint256 _delay,
+        uint256 _auctionDuration,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
@@ -62,12 +64,17 @@ interface ISub2 {
         uint256 _maxTip,
         address _tipToken,
         uint256 _terms,
+        uint256 _auctionDuration,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
     /// @notice Can be called by both the sender and the recipient.
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to cancel.
     function cancelSubscription(uint256 _subscriptionIndex) external;
+
+    /// @notice Can be called by anyone once cooldown + auctionDuration has passed since the last payment.
+    /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to cancel.
+    function cancelExpiredSubscription(uint256 _subscriptionIndex) external;
 
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to redeem.
     /// @param _feeRecipient The address that will receive the executor fee.
@@ -82,6 +89,11 @@ interface ISub2 {
     /// @param _maxTip The new maximum tip of tokens to be claimed by an executor.
     /// @param _tipToken The new token to be used for the tip.
     function updateMaxTip(uint256 _subscriptionIndex, uint256 _maxTip, address _tipToken) external;
+
+    /// @notice Can only be called by the recipient of the subscription.
+    /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to update.
+    /// @param _auctionDuration The new auction duration of the subscription.
+    function updateAuctionDuration(uint256 _subscriptionIndex, uint256 _auctionDuration) external;
 
     function getSubscriptionsSender(address _sender) external view returns (IndexedSubscription[] memory);
     function getSubscriptionsRecipient(address _recipient) external view returns (IndexedSubscription[] memory);
@@ -106,6 +118,7 @@ interface ISub2 {
     event SubscriptionCreated(uint256 subscriptionIndex);
     event SubscriptionCanceled(uint256 subscriptionIndex);
     event MaxTipUpdated(uint256 subscriptionIndex, uint256 maxTip, address tipToken);
+    event AuctionDurationUpdated(uint256 subscriptionIndex, uint256 auctionDuration);
 
     /// @notice Thrown when there has not been enough time past since the last payment
     error NotEnoughTimePast();
@@ -137,6 +150,12 @@ interface ISub2 {
     /// @notice Thrown when a subscription aldready exists at index
     error SubscriptionAlreadyExists();
 
+    /// @notice Thrown when auction time is less than cooldown
+    error AuctionDurationGreaterThanCooldown();
+
+    /// @notice Thrown auction time has passed
+    error AuctionExpired();
+
     struct Subscription {
         address sender;
         address recipient;
@@ -146,6 +165,7 @@ interface ISub2 {
         uint256 lastPayment;
         uint256 maxTip;
         address tipToken;
+        uint256 auctionDuration;
     }
 
     struct IndexedSubscription {

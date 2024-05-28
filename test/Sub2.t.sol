@@ -39,6 +39,9 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
     uint256 defaultTip = 10 * 1e5;
 
+    uint256 defaultCooldown = 1800;
+    uint256 defaultAuctionTime = 1800;
+
     address defaultTipToken;
 
     uint256 defaultIndex = type(uint256).max;
@@ -63,15 +66,21 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
     // tests that funds are correctly transferred from the owner to the recipient upon payment for initial payment
     function test_CreateSubscription() public {
-        uint256 cooldownTime = 0;
-
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
         vm.prank(from);
+        vm.warp(1641070800);
         snapStart("createSubscription");
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
         snapEnd();
 
@@ -83,23 +92,29 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_RedeemPayment() public {
-        uint256 cooldownTime = 0;
-
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
         uint256 treasuryFee = sub2.calculateFee(defaultAmount, sub2.treasuryFeeBasisPoints());
 
         vm.prank(from);
-
+        vm.warp(1641070800);
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         assertEq(token0.balanceOf(executor), 0, "executor balance not 0");
         assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance too much");
 
         vm.prank(executor);
+        vm.warp(1641070800 + defaultCooldown);
         snapStart("redeemPaymentFirst");
         (uint256 executorFee,) = sub2.redeemPayment(0, executor);
         snapEnd();
@@ -112,12 +127,19 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
 
     function test_CollectPaymentBeforeCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
         // cooldownTime has to be <= blockTime when created
-        blockTime = bound(blockTime, 1, type(uint256).max / 2);
-        cooldownTime = bound(cooldownTime, 0, blockTime);
+        blockTime = bound(blockTime, defaultAuctionTime, type(uint256).max / 2);
+        cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime);
         vm.warp(blockTime);
         vm.prank(from);
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            cooldownTime,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.warp(blockTime + cooldownTime - 1);
@@ -142,13 +164,20 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     */
 
     function test_CollectPaymentBeforeCooldownPassed2(uint256 cooldownTime, uint256 blockTime) public {
-        blockTime = bound(blockTime, 1, type(uint256).max / 2);
-        cooldownTime = bound(cooldownTime, 0, blockTime / 2);
+        blockTime = bound(blockTime, defaultAuctionTime * 2, type(uint256).max / 2);
+        cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime / 2);
 
         vm.warp(blockTime);
         vm.prank(from);
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            cooldownTime,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.warp(blockTime + cooldownTime);
@@ -162,13 +191,22 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_CollectPaymentAfterCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
-        blockTime = bound(blockTime, 1, type(uint256).max / 2);
-        cooldownTime = bound(cooldownTime, 0, blockTime);
+        blockTime = bound(blockTime, defaultAuctionTime, type(uint256).max / 2 - defaultAuctionTime);
+        cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime);
+
+        // subscription.lastPayment + subscription.cooldown + subscription.auctionTime
 
         vm.prank(from);
         vm.warp(blockTime);
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            cooldownTime,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.prank(executor);
@@ -182,10 +220,17 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_CancelSubscriptionUser() public {
-        uint256 cooldownTime = 0;
         vm.prank(from);
+        vm.warp(1641070800);
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.prank(from);
@@ -193,10 +238,17 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_CancelSubscriptionRecipient() public {
-        uint256 cooldownTime = 0;
         vm.prank(from);
+        vm.warp(1641070800);
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.prank(recipient);
@@ -207,10 +259,17 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         vm.assume(_addressCancelling != from);
         vm.assume(_addressCancelling != recipient);
 
-        uint256 cooldownTime = 0;
         vm.prank(from);
+        vm.warp(1641070800);
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.prank(_addressCancelling);
@@ -219,10 +278,17 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_RedeemingCanceledSubscription() public {
-        uint256 cooldownTime = 0;
         vm.prank(from);
+        vm.warp(1641070800);
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.prank(from);
@@ -233,12 +299,39 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         sub2.redeemPayment(0, executor);
     }
 
+    function test_RedeemingExpiredSubscription() public {
+        vm.prank(from);
+        vm.warp(1641070800);
+        sub2.createSubscription(
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
+        );
+
+        vm.prank(executor);
+        vm.warp(1641070800 + defaultCooldown + defaultAuctionTime + 1);
+        vm.expectRevert(abi.encodeWithSelector(ISub2.AuctionExpired.selector));
+        sub2.redeemPayment(0, executor);
+    }
+
     function testFail_NotEnoughBalance() public {
-        uint256 cooldownTime = 0;
         uint256 startBalanceFrom = token0.balanceOf(from);
         vm.prank(from);
+        vm.warp(1641070800);
         sub2.createSubscription(
-            recipient, startBalanceFrom, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            startBalanceFrom,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.prank(from);
@@ -246,32 +339,37 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_ExecutorFeeChangeSameOutputAmount(uint256 oldTip, uint256 newTip, uint256 blockTime) public {
-        uint256 cooldownTime = 0;
         uint256 startBalanceFrom = token0.balanceOf(from);
-        blockTime = bound(blockTime, 0, type(uint256).max - sub2.feeAuctionPeriod());
+        blockTime = bound(blockTime, defaultCooldown, type(uint256).max - defaultAuctionTime - defaultCooldown);
         vm.assume(oldTip < startBalanceFrom / 4);
         vm.assume(newTip < startBalanceFrom / 4);
 
         vm.warp(blockTime);
         vm.prank(from);
         sub2.createSubscriptionWithDelay(
-            recipient, defaultAmount, address(token0), cooldownTime, oldTip, defaultTipToken, 0, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            oldTip,
+            defaultTipToken,
+            0,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
-        vm.warp(blockTime);
         vm.prank(executor);
         sub2.redeemPayment(0, executor);
 
         uint256 startBalanceToSecond = token0.balanceOf(recipient);
         uint256 toBalanceDifferenceFirst = startBalanceToSecond - startBalanceTo;
 
-        vm.warp(blockTime + sub2.feeAuctionPeriod());
+        vm.warp(blockTime + defaultCooldown + defaultAuctionTime);
         vm.prank(from);
         sub2.updateMaxTip(0, newTip, defaultTipToken);
 
-        vm.warp(blockTime + sub2.feeAuctionPeriod());
         vm.prank(executor);
         sub2.redeemPayment(0, executor);
 
@@ -281,24 +379,30 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_MaxFeeCeilingUponRedeeming(uint256 waitTime, uint256 blockTime) public {
-        waitTime = bound(waitTime, 0, sub2.feeAuctionPeriod());
-        blockTime = bound(blockTime, 1, type(uint256).max - waitTime);
+        waitTime = bound(waitTime, 0, defaultAuctionTime);
+        blockTime = bound(blockTime, defaultCooldown, type(uint256).max - defaultAuctionTime - defaultCooldown);
 
-        uint256 cooldownTime = 0;
         uint256 treasuryFee = sub2.calculateFee(defaultAmount, sub2.treasuryFeeBasisPoints());
 
         vm.warp(blockTime);
         vm.prank(from);
         snapStart("createSubscription");
         sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
         snapEnd();
 
         assertEq(token0.balanceOf(executor), 0, "executor balance not 0");
         assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance too much");
 
-        vm.warp(blockTime + waitTime);
+        vm.warp(blockTime + defaultCooldown + waitTime);
         vm.prank(executor);
         snapStart("redeemPaymentFirst");
         (uint256 executorTip,) = sub2.redeemPayment(0, executor);
@@ -308,28 +412,41 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     }
 
     function test_CreateSubscriptionWithoutFirstPayment() public {
-        uint256 cooldownTime = 0;
-
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
         vm.prank(from);
+        vm.warp(1641070800);
         sub2.createSubscriptionWithDelay(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, 0, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            0,
+            defaultAuctionTime,
+            defaultIndex
         );
 
-        (address sender,,,,,,,) = sub2.subscriptions(0);
+        (address sender,,,,,,,,) = sub2.subscriptions(0);
         assertEq(sender, from);
         assertEq(token0.balanceOf(from), startBalanceFrom);
         assertEq(token0.balanceOf(recipient), startBalanceTo);
     }
 
     function test_ReuseSubscriptionIndex() public {
-        uint256 cooldownTime = 0;
-
         vm.prank(from);
+        vm.warp(1641070800);
         uint256 subIndex = sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.prank(from);
@@ -338,26 +455,67 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         vm.prank(address2);
         snapStart("createSubscriptionReusingIndex");
         sub2.createSubscriptionWithDelay(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, 0, subIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            0,
+            defaultAuctionTime,
+            subIndex
         );
         snapEnd();
 
-        (address sender,,,,,,,) = sub2.subscriptions(subIndex);
+        (address sender,,,,,,,,) = sub2.subscriptions(subIndex);
         assertEq(sender, address2);
     }
 
     function test_ReuseNotCanceledSubscriptionIndex() public {
-        uint256 cooldownTime = 0;
-
         vm.prank(from);
+        vm.warp(1641070800);
         uint256 subIndex = sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
         );
 
         vm.expectRevert(abi.encodeWithSelector(ISub2.SubscriptionAlreadyExists.selector));
         vm.prank(address2);
         sub2.createSubscriptionWithDelay(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, 0, subIndex
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            0,
+            defaultAuctionTime,
+            subIndex
         );
+    }
+
+    function test_CancelExpiredSubscription(address cancelling) public {
+        vm.prank(from);
+        vm.warp(1641070800);
+        uint256 subIndex = sub2.createSubscription(
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            defaultAuctionTime,
+            defaultIndex
+        );
+
+        vm.warp(1641070800 + defaultCooldown + defaultAuctionTime + 1);
+        vm.prank(cancelling);
+        sub2.cancelExpiredSubscription(subIndex);
     }
 }

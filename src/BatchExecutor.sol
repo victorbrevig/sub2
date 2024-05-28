@@ -49,7 +49,8 @@ contract BatchExecutor is IBatchExecutor {
                 uint256 cooldown,
                 uint256 lastPayment,
                 uint256 maxTip,
-                address tipToken
+                address tipToken,
+                uint256 auctionDuration
             ) = sub2.subscriptions(_subscriptionIndices[i]);
             subscriptions[i] = ISub2.Subscription({
                 sender: sender,
@@ -59,7 +60,8 @@ contract BatchExecutor is IBatchExecutor {
                 cooldown: cooldown,
                 lastPayment: lastPayment,
                 maxTip: maxTip,
-                tipToken: tipToken
+                tipToken: tipToken,
+                auctionDuration: auctionDuration
             });
         }
         return subscriptions;

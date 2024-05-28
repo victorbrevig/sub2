@@ -10,8 +10,6 @@ import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
     using SafeTransferLib for ERC20;
 
-    uint16 public feeAuctionPeriod = 30 minutes;
-
     Subscription[] public subscriptions;
 
     //mapping(address => mapping(uint16 => Subscription)) public subscriptions;
@@ -32,6 +30,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         uint256 _cooldown,
         uint256 _maxTip,
         address _tipToken,
+        uint256 _auctionDuration,
         uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
         // first send the transaction
@@ -46,8 +45,9 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         // transfer amount
         ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
 
-        subscriptionIndex =
-            _createSubscription(_recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _cooldown, _index);
+        subscriptionIndex = _createSubscription(
+            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _cooldown, _auctionDuration, _index
+        );
 
         emit SuccessfulPayment(msg.sender, _recipient, subscriptionIndex, _amount, _token, protocolFee, 0, _tipToken, 1);
 
@@ -62,9 +62,12 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         uint256 _maxTip,
         address _tipToken,
         uint256 _delay,
+        uint256 _auctionDuration,
         uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
-        return _createSubscription(_recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _delay, _index);
+        return _createSubscription(
+            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _delay, _auctionDuration, _index
+        );
     }
 
     function createSubscriptionWithPrepaidTerms(
@@ -75,6 +78,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         uint256 _maxTip,
         address _tipToken,
         uint256 _terms,
+        uint256 _auctionDuration,
         uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
         uint256 totalAmount = _amount * _terms;
@@ -86,7 +90,15 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
 
         subscriptionIndex = _createSubscription(
-            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _cooldown * (_terms + 1), _index
+            _recipient,
+            _amount,
+            _token,
+            _cooldown,
+            _maxTip,
+            _tipToken,
+            _cooldown * (_terms + 1),
+            _auctionDuration,
+            _index
         );
 
         emit SuccessfulPayment(
@@ -104,9 +116,12 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         uint256 _maxTip,
         address _tipToken,
         uint256 _delay,
+        uint256 _auctionDuration,
         uint256 _index
     ) private returns (uint256 subscriptionIndex) {
         subscriptionIndex = subscriptions.length;
+
+        if (_auctionDuration > _cooldown) revert AuctionDurationGreaterThanCooldown();
 
         if (_index < subscriptionIndex) {
             Subscription storage subscription = subscriptions[_index];
@@ -119,7 +134,8 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
                 cooldown: _cooldown,
                 lastPayment: block.timestamp - _cooldown + _delay,
                 maxTip: _maxTip,
-                tipToken: _tipToken
+                tipToken: _tipToken,
+                auctionDuration: _auctionDuration
             });
             subscriptionIndex = _index;
             subscriptions[subscriptionIndex] = newSubscription;
@@ -133,7 +149,8 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
                     _cooldown,
                     block.timestamp - _cooldown + _delay,
                     _maxTip,
-                    _tipToken
+                    _tipToken,
+                    _auctionDuration
                 )
             );
         }
@@ -156,6 +173,15 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         emit SubscriptionCanceled(_subscriptionIndex);
     }
 
+    function cancelExpiredSubscription(uint256 _subscriptionIndex) public override {
+        Subscription memory subscription = subscriptions[_subscriptionIndex];
+        if (subscription.lastPayment + subscription.cooldown + subscription.auctionDuration >= block.timestamp) {
+            revert NotEnoughTimePast();
+        }
+        delete subscriptions[_subscriptionIndex];
+        emit SubscriptionCanceled(_subscriptionIndex);
+    }
+
     // returns (subscriptionIndex, executorFee, executorFeeBasisPoints, tokenAddress)
     function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient)
         public
@@ -167,16 +193,18 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         // check if subscription exists, it would be set to 0 if delete previously
         if (subscription.sender == address(0)) revert SubscriptionIsCanceled();
         if (subscription.lastPayment + subscription.cooldown > block.timestamp) revert NotEnoughTimePast();
+        if (subscription.lastPayment + subscription.cooldown + subscription.auctionDuration < block.timestamp) {
+            revert AuctionExpired();
+        }
 
-        // calculate executor fee basis points, goes from 0 to subscription.executorFeeBasisPoints over feeAuctionPeriod seconds
-        uint256 secondsInAuctionPeriod =
-            min(block.timestamp - subscription.lastPayment - subscription.cooldown, feeAuctionPeriod);
+        // calculate executor fee basis points, goes from 0 to subscription.executorFeeBasisPoints over subscription.auctionDuration seconds
+        uint256 secondsInAuctionPeriod = block.timestamp - subscription.lastPayment - subscription.cooldown;
 
-        executorTip = (subscription.maxTip * secondsInAuctionPeriod) / feeAuctionPeriod;
+        executorTip = (subscription.maxTip * secondsInAuctionPeriod) / subscription.auctionDuration;
 
         require(executorTip <= subscription.maxTip, "Invalid fee basis points");
 
-        subscription.lastPayment = block.timestamp;
+        subscription.lastPayment += subscription.cooldown;
 
         uint256 protocolFee = calculateFee(subscription.amount, treasuryFeeBasisPoints);
 
@@ -209,16 +237,28 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
     function updateMaxTip(uint256 _subscriptionIndex, uint256 _maxTip, address _tipToken) public override {
         Subscription storage subscription = subscriptions[_subscriptionIndex];
         if (subscription.sender != msg.sender) revert NotOwnerOfSubscription();
-        if (subscription.sender == address(0)) revert SubscriptionIsCanceled();
         if (
             block.timestamp >= subscription.lastPayment + subscription.cooldown
-                && block.timestamp < subscription.lastPayment + subscription.cooldown + feeAuctionPeriod
+                && block.timestamp < subscription.lastPayment + subscription.cooldown + subscription.auctionDuration
         ) revert InFeeAuctionPeriod();
 
         subscription.maxTip = _maxTip;
         subscription.tipToken = _tipToken;
 
         emit MaxTipUpdated(_subscriptionIndex, _maxTip, _tipToken);
+    }
+
+    function updateAuctionDuration(uint256 _subscriptionIndex, uint256 _auctionDuration) public override {
+        Subscription storage subscription = subscriptions[_subscriptionIndex];
+        if (subscription.recipient != msg.sender) revert NotRecipientOfSubscription();
+        if (
+            block.timestamp >= subscription.lastPayment + subscription.cooldown
+                && block.timestamp < subscription.lastPayment + subscription.cooldown + subscription.auctionDuration
+        ) revert InFeeAuctionPeriod();
+        if (_auctionDuration > subscription.cooldown) revert AuctionDurationGreaterThanCooldown();
+
+        subscription.auctionDuration = _auctionDuration;
+        emit AuctionDurationUpdated(_subscriptionIndex, _auctionDuration);
     }
 
     function getSubscriptionsSender(address _sender) public view override returns (IndexedSubscription[] memory) {
@@ -280,9 +320,5 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
             subscription.tipToken,
             _terms
         );
-    }
-
-    function min(uint256 a, uint256 b) public pure returns (uint256) {
-        return a < b ? a : b;
     }
 }
