@@ -115,8 +115,8 @@ interface ISub2 {
         address tipToken,
         uint256 terms
     );
-    event SubscriptionCreated(uint256 subscriptionIndex);
-    event SubscriptionCanceled(uint256 subscriptionIndex);
+    event SubscriptionCreated(uint256 indexed subscriptionIndex, address indexed recipient);
+    event SubscriptionCanceled(uint256 indexed subscriptionIndex, address indexed recipient);
     event MaxTipUpdated(uint256 subscriptionIndex, uint256 maxTip, address tipToken);
     event AuctionDurationUpdated(uint256 subscriptionIndex, uint256 auctionDuration);
 

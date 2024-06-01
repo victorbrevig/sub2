@@ -160,7 +160,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         recipientToSubscriptionIndex[_recipient][recipientSubscriptionNonce[_recipient]] = subscriptionIndex;
         recipientSubscriptionNonce[_recipient]++;
 
-        emit SubscriptionCreated(subscriptionIndex);
+        emit SubscriptionCreated(subscriptionIndex, _recipient);
 
         return subscriptionIndex;
     }
@@ -170,7 +170,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         Subscription memory subscription = subscriptions[_subscriptionIndex];
         if (subscription.sender != msg.sender && subscription.recipient != msg.sender) revert NotSenderOrRecipient();
         delete subscriptions[_subscriptionIndex];
-        emit SubscriptionCanceled(_subscriptionIndex);
+        emit SubscriptionCanceled(_subscriptionIndex, subscription.recipient);
     }
 
     function cancelExpiredSubscription(uint256 _subscriptionIndex) public override {
@@ -179,7 +179,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
             revert NotEnoughTimePast();
         }
         delete subscriptions[_subscriptionIndex];
-        emit SubscriptionCanceled(_subscriptionIndex);
+        emit SubscriptionCanceled(_subscriptionIndex, subscription.recipient);
     }
 
     // returns (subscriptionIndex, executorFee, executorFeeBasisPoints, tokenAddress)
