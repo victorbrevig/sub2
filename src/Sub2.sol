@@ -51,30 +51,56 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _maxTip,
         address _tipToken,
         uint256 _auctionDuration,
+        uint256 _delay,
+        uint256 _terms,
         uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
-        // first send the transaction
-        // fee is calculated based on the amount
-        uint256 protocolFee = calculateFee(_amount, treasuryFeeBasisPoints);
-
-        uint256 remainingAmount = _amount - protocolFee;
-
-        // transfer protocol fee
-        ERC20(_token).safeTransferFrom(msg.sender, treasury, protocolFee);
-
-        // transfer amount
-        ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
-
-        subscriptionIndex = _createSubscription(
-            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _cooldown, _auctionDuration, msg.sender, _index
+        subscriptionIndex = _createCreateSubscription(
+            _recipient,
+            _amount,
+            _token,
+            _cooldown,
+            _maxTip,
+            _tipToken,
+            _delay,
+            _terms,
+            _auctionDuration,
+            msg.sender,
+            _index
         );
-
-        emit SuccessfulPayment(msg.sender, _recipient, subscriptionIndex, _amount, _token, protocolFee, 0, _tipToken, 1);
-
         return subscriptionIndex;
     }
 
     function createSubscriptionWithSponsor(
+        SponsorPermit calldata _permit,
+        address _sponsor,
+        bytes calldata _signature,
+        uint256 _index
+    ) public override returns (uint256 subscriptionIndex) {
+        if (block.timestamp > _permit.deadline) revert SignatureExpired(_permit.deadline);
+
+        _useUnorderedNonce(_sponsor, _permit.nonce);
+
+        bytes32 dataHash = _permit.hash();
+        _signature.verify(_hashTypedData(dataHash), _sponsor);
+
+        subscriptionIndex = _createCreateSubscription(
+            _permit.recipient,
+            _permit.amount,
+            _permit.token,
+            _permit.cooldown,
+            _permit.maxTip,
+            _permit.tipToken,
+            _permit.delay,
+            _permit.terms,
+            _permit.auctionDuration,
+            _sponsor,
+            _index
+        );
+        return subscriptionIndex;
+    }
+
+    function _createCreateSubscription(
         address _recipient,
         uint256 _amount,
         address _token,
@@ -84,30 +110,9 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _delay,
         uint256 _terms,
         uint256 _auctionDuration,
-        uint256 _index,
         address _sponsor,
-        bytes calldata _signature,
-        SponsorPermit calldata _permit
-    ) public override returns (uint256 subscriptionIndex) {
-        // validate signature with witness
-
-        if (block.timestamp > _permit.deadline) revert SignatureExpired(_permit.deadline);
-        if (_recipient != _permit.recipient) revert InvalidRecipient(_permit.recipient);
-        if (_amount != _permit.amount) revert InvalidAmount(_permit.amount);
-        if (_cooldown != _permit.cooldown) revert InvalidCooldown(_permit.cooldown);
-        if (_delay != _permit.delay) revert InvalidDelay(_permit.delay);
-        if (_terms != _permit.terms) revert InvalidTerms(_permit.terms);
-        if (_maxTip != _permit.maxTip) revert InvalidMaxTip(_permit.maxTip);
-        if (_auctionDuration != _permit.auctionDuration) revert InvalidAuctionDuration(_permit.auctionDuration);
-        if (_token != _permit.token) revert InvalidToken(_permit.token);
-        if (_tipToken != _permit.tipToken) revert InvalidTipToken(_permit.tipToken);
-
-        _useUnorderedNonce(_sponsor, _permit.nonce);
-
-        bytes32 dataHash = _permit.hash();
-
-        _signature.verify(_hashTypedData(dataHash), _sponsor);
-
+        uint256 _index
+    ) private returns (uint256 subscriptionIndex) {
         if (_delay == 0) {
             subscriptionIndex = _createSubscription(
                 _recipient,
@@ -140,61 +145,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _delay, _auctionDuration, _sponsor, _index
             );
         }
-
-        return subscriptionIndex;
-    }
-
-    function createSubscriptionWithDelay(
-        address _recipient,
-        uint256 _amount,
-        address _token,
-        uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
-        uint256 _delay,
-        uint256 _auctionDuration,
-        uint256 _index
-    ) public override returns (uint256 subscriptionIndex) {
-        return _createSubscription(
-            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _delay, _auctionDuration, msg.sender, _index
-        );
-    }
-
-    function createSubscriptionWithPrepaidTerms(
-        address _recipient,
-        uint256 _amount,
-        address _token,
-        uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
-        uint256 _terms,
-        uint256 _auctionDuration,
-        uint256 _index
-    ) public override returns (uint256 subscriptionIndex) {
-        uint256 totalAmount = _amount * _terms;
-        uint256 protocolFee = calculateFee(totalAmount, treasuryFeeBasisPoints);
-
-        uint256 remainingAmount = totalAmount - protocolFee;
-
-        ERC20(_token).safeTransferFrom(msg.sender, treasury, protocolFee);
-        ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
-
-        subscriptionIndex = _createSubscription(
-            _recipient,
-            _amount,
-            _token,
-            _cooldown,
-            _maxTip,
-            _tipToken,
-            _cooldown * (_terms + 1),
-            _auctionDuration,
-            msg.sender,
-            _index
-        );
-
-        emit SuccessfulPayment(
-            msg.sender, _recipient, subscriptionIndex, _amount, _token, protocolFee, 0, _tipToken, _terms
-        );
 
         return subscriptionIndex;
     }
@@ -337,7 +287,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
 
     function updateMaxTip(uint256 _subscriptionIndex, uint256 _maxTip, address _tipToken) public override {
         Subscription storage subscription = subscriptions[_subscriptionIndex];
-        if (subscription.sender != msg.sender) revert NotOwnerOfSubscription();
+        if (subscription.sponsor != msg.sender) revert NotSponsorOfSubscription();
         if (
             block.timestamp >= subscription.lastPayment + subscription.cooldown
                 && block.timestamp < subscription.lastPayment + subscription.cooldown + subscription.auctionDuration

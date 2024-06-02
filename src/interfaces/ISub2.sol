@@ -10,6 +10,9 @@ interface ISub2 {
     /// @param _cooldown Amount of time in seconds that must pass between payments.
     /// @param _maxTip The maximum amount of _timToken that can be sent as a tip to an executor.
     /// @param _tipToken Address of ERC20 token that will be used for the tip.
+    /// @param _auctionDuration The duration of the auction period in seconds.
+    /// @param _delay Amount of time in seconds that must pass before the first payment.
+    /// @param _terms The number of terms to pay initially.
     /// @param _index The index of the subscription created in Subscriptions.
     /// @return subscriptionIndex The index of the subscription created in Subscriptions.
     function createSubscription(
@@ -20,67 +23,15 @@ interface ISub2 {
         uint256 _maxTip,
         address _tipToken,
         uint256 _auctionDuration,
+        uint256 _delay,
+        uint256 _terms,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
     function createSubscriptionWithSponsor(
-        address _recipient,
-        uint256 _amount,
-        address _token,
-        uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
-        uint256 _delay,
-        uint256 _terms,
-        uint256 _auctionDuration,
-        uint256 _index,
+        SponsorPermit calldata _permit,
         address _sponsor,
         bytes calldata _signature,
-        SponsorPermit calldata _permit
-    ) external returns (uint256 subscriptionIndex);
-
-    /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This can cause unexpected reverts if the same index is used at the same time. type(uint256).max can be used to always ensure a new subscription slot is created.
-    /// @param _recipient Recipient of the subscription.
-    /// @param _amount Amount of tokens that the recipient will receive.
-    /// @param _token Address of ERC20 token that will be used for the subscription.
-    /// @param _cooldown Amount of time in seconds that must pass between payments.
-    /// @param _maxTip The maximum amount of _timToken that can be sent as a tip to an executor.
-    /// @param _tipToken Address of ERC20 token that will be used for the tip.
-    /// @param _delay Amount of time in seconds that must pass before the first payment.
-    /// @param _index The index of the subscription created in Subscriptions.
-    /// @return subscriptionIndex The index of the subscription created in Subscriptions.
-    function createSubscriptionWithDelay(
-        address _recipient,
-        uint256 _amount,
-        address _token,
-        uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
-        uint256 _delay,
-        uint256 _auctionDuration,
-        uint256 _index
-    ) external returns (uint256 subscriptionIndex);
-
-    /// @dev Requires that the msg.sender has approved the contract for the amount of tokens.
-    /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This can cause unexpected reverts if the same index is used at the same time. type(uint256).max can be used to always ensure a new subscription slot is created.
-    /// @param _recipient Recipient of the subscription.
-    /// @param _amount Amount of tokens that the recipient will receive.
-    /// @param _token Address of ERC20 token that will be used for the subscription.
-    /// @param _cooldown Amount of time in seconds that must pass between payments.
-    /// @param _maxTip The maximum amount of _timToken that can be sent as a tip to an executor.
-    /// @param _tipToken Address of ERC20 token that will be used for the tip.
-    /// @param _terms The number of terms to prepay.
-    /// @param _index The index of the subscription created in Subscriptions.
-    /// @return subscriptionIndex The index of the subscription created in Subscriptions.
-    function createSubscriptionWithPrepaidTerms(
-        address _recipient,
-        uint256 _amount,
-        address _token,
-        uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
-        uint256 _terms,
-        uint256 _auctionDuration,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
@@ -147,6 +98,9 @@ interface ISub2 {
     /// @notice Thrown when the caller is not the owner of the subscription
     error NotOwnerOfSubscription();
 
+    /// @notice Thrown when the caller is not the sponsor of the subscription
+    error NotSponsorOfSubscription();
+
     /// @notice Thrown when the caller is not the recipient of the subscription
     error NotRecipientOfSubscription();
 
@@ -176,9 +130,6 @@ interface ISub2 {
 
     /// @notice Thrown auction time has passed
     error AuctionExpired();
-
-    /// @notice Thrown when caller is not the sponsor of the subscription
-    error NotSponsorOfSubscription();
 
     /// @notice Emits an event when the owner successfully invalidates an unordered nonce.
     event UnorderedNonceInvalidation(address indexed owner, uint256 word, uint256 mask);

@@ -43,6 +43,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
     uint256 defaultCooldown = 1800;
     uint256 defaultAuctionTime = 1800;
 
+    uint256 defaultDelay = 0;
+    uint256 defaultTerms = 1;
+
     address defaultTipToken;
 
     uint256 defaultIndex = type(uint256).max;
@@ -81,6 +84,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
         snapEnd();
@@ -115,21 +120,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.prank(from);
         vm.warp(1641070800);
         snapStart("createSubscriptionWithSponsor");
-        sub2.createSubscriptionWithSponsor(
-            recipient,
-            defaultAmount,
-            address(token0),
-            defaultCooldown,
-            defaultTip,
-            defaultTipToken,
-            0,
-            1,
-            defaultAuctionTime,
-            defaultIndex,
-            sponsor,
-            sig,
-            sponsorPermit
-        );
+        sub2.createSubscriptionWithSponsor(sponsorPermit, sponsor, sig, defaultIndex);
         snapEnd();
 
         uint256 treasuryFee = sub2.calculateFee(defaultAmount, sub2.treasuryFeeBasisPoints());
@@ -155,6 +146,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -187,6 +180,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -195,21 +190,6 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.expectRevert(abi.encodeWithSelector(ISub2.NotEnoughTimePast.selector));
         sub2.redeemPayment(0, executor);
     }
-    /*
-    function test_PrePayTimeCorrectlyUpdated(uint256 cooldownTime) public {
-        cooldownTime = bound(cooldownTime, 0, type(uint32).max - 1641070800);
-        vm.warp(1641070800);
-        vm.prank(from);
-        sub2.createSubscription(
-            recipient, defaultAmount, address(token0), cooldownTime, defaultTip, defaultTipToken, defaultIndex
-        );
-
-        vm.warp(1641070800 + cooldownTime - 1);
-        vm.prank(from);
-        vm.expectRevert(abi.encodeWithSelector(ISub2.NotEnoughTimePast.selector));
-        sub2.prePay(0, 3);
-    }
-    */
 
     function test_CollectPaymentBeforeCooldownPassed2(uint256 cooldownTime, uint256 blockTime) public {
         blockTime = bound(blockTime, defaultAuctionTime * 2, type(uint256).max / 2);
@@ -225,6 +205,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -254,6 +236,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -278,6 +262,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -296,6 +282,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -317,6 +305,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -336,6 +326,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -358,6 +350,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -379,6 +373,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -394,15 +390,16 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         vm.warp(blockTime);
         vm.prank(from);
-        sub2.createSubscriptionWithDelay(
+        sub2.createSubscription(
             recipient,
             defaultAmount,
             address(token0),
             defaultCooldown,
-            oldTip,
+            defaultTip,
             defaultTipToken,
-            0,
             defaultAuctionTime,
+            defaultDelay,
+            0,
             defaultIndex
         );
 
@@ -443,6 +440,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
         snapEnd();
@@ -465,15 +464,16 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         vm.prank(from);
         vm.warp(1641070800);
-        sub2.createSubscriptionWithDelay(
+        sub2.createSubscription(
             recipient,
             defaultAmount,
             address(token0),
             defaultCooldown,
             defaultTip,
             defaultTipToken,
-            0,
             defaultAuctionTime,
+            defaultDelay,
+            0,
             defaultIndex
         );
 
@@ -494,6 +494,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -502,15 +504,16 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         vm.prank(address2);
         snapStart("createSubscriptionReusingIndex");
-        sub2.createSubscriptionWithDelay(
+        sub2.createSubscription(
             recipient,
             defaultAmount,
             address(token0),
             defaultCooldown,
             defaultTip,
             defaultTipToken,
-            0,
             defaultAuctionTime,
+            defaultDelay,
+            0,
             subIndex
         );
         snapEnd();
@@ -530,20 +533,23 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
         vm.expectRevert(abi.encodeWithSelector(ISub2.SubscriptionAlreadyExists.selector));
         vm.prank(address2);
-        sub2.createSubscriptionWithDelay(
+        sub2.createSubscription(
             recipient,
             defaultAmount,
             address(token0),
             defaultCooldown,
             defaultTip,
             defaultTipToken,
-            0,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             subIndex
         );
     }
@@ -559,6 +565,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 

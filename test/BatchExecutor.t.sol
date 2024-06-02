@@ -45,6 +45,9 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
     uint256 defaultCooldown = 1800;
     uint256 defaultAuctionTime = 1800;
 
+    uint256 defaultDelay = 0;
+    uint256 defaultTerms = 1;
+
     address defaultTipToken;
 
     uint256 defaultIndex = type(uint256).max;
@@ -81,6 +84,8 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
@@ -115,6 +120,8 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
             defaultTip,
             defaultTipToken,
             defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
             defaultIndex
         );
 
