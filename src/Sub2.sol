@@ -6,9 +6,27 @@ import {FeeManager} from "./FeeManager.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
 import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
+import {EIP712} from "./EIP712.sol";
+import {SignatureVerification} from "./libraries/SignatureVerification.sol";
+import {SponsorPermitHash} from "./libraries/SponsorPermitHash.sol";
+import {
+    SignatureExpired,
+    InvalidNonce,
+    InvalidRecipient,
+    InvalidAmount,
+    InvalidToken,
+    InvalidTipToken,
+    InvalidCooldown,
+    InvalidDelay,
+    InvalidTerms,
+    InvalidMaxTip,
+    InvalidAuctionDuration
+} from "./PermitErrors.sol";
 
-contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
+contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
+    using SignatureVerification for bytes;
     using SafeTransferLib for ERC20;
+    using SponsorPermitHash for SponsorPermit;
 
     Subscription[] public subscriptions;
 
@@ -18,6 +36,8 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
 
     mapping(address => mapping(uint32 => uint256)) public recipientToSubscriptionIndex;
     mapping(address => uint32) public recipientSubscriptionNonce;
+
+    mapping(address => mapping(uint256 => uint256)) public nonceBitmap;
 
     constructor(address _treasury, uint16 _treasuryBasisPoints, address _owner)
         FeeManager(_owner, _treasury, _treasuryBasisPoints)
@@ -46,10 +66,80 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
 
         subscriptionIndex = _createSubscription(
-            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _cooldown, _auctionDuration, _index
+            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _cooldown, _auctionDuration, msg.sender, _index
         );
 
         emit SuccessfulPayment(msg.sender, _recipient, subscriptionIndex, _amount, _token, protocolFee, 0, _tipToken, 1);
+
+        return subscriptionIndex;
+    }
+
+    function createSubscriptionWithSponsor(
+        address _recipient,
+        uint256 _amount,
+        address _token,
+        uint256 _cooldown,
+        uint256 _maxTip,
+        address _tipToken,
+        uint256 _delay,
+        uint256 _terms,
+        uint256 _auctionDuration,
+        uint256 _index,
+        address _sponsor,
+        bytes calldata _signature,
+        SponsorPermit calldata _permit
+    ) public override returns (uint256 subscriptionIndex) {
+        // validate signature with witness
+
+        if (block.timestamp > _permit.deadline) revert SignatureExpired(_permit.deadline);
+        if (_recipient != _permit.recipient) revert InvalidRecipient(_permit.recipient);
+        if (_amount != _permit.amount) revert InvalidAmount(_permit.amount);
+        if (_cooldown != _permit.cooldown) revert InvalidCooldown(_permit.cooldown);
+        if (_delay != _permit.delay) revert InvalidDelay(_permit.delay);
+        if (_terms != _permit.terms) revert InvalidTerms(_permit.terms);
+        if (_maxTip != _permit.maxTip) revert InvalidMaxTip(_permit.maxTip);
+        if (_auctionDuration != _permit.auctionDuration) revert InvalidAuctionDuration(_permit.auctionDuration);
+        if (_token != _permit.token) revert InvalidToken(_permit.token);
+        if (_tipToken != _permit.tipToken) revert InvalidTipToken(_permit.tipToken);
+
+        _useUnorderedNonce(_sponsor, _permit.nonce);
+
+        bytes32 dataHash = _permit.hash();
+
+        _signature.verify(_hashTypedData(dataHash), _sponsor);
+
+        if (_delay == 0) {
+            subscriptionIndex = _createSubscription(
+                _recipient,
+                _amount,
+                _token,
+                _cooldown,
+                _maxTip,
+                _tipToken,
+                _cooldown * _terms,
+                _auctionDuration,
+                _sponsor,
+                _index
+            );
+            // initial payment
+            uint256 totalAmount = _amount * _terms;
+            uint256 protocolFee = calculateFee(totalAmount, treasuryFeeBasisPoints);
+
+            uint256 remainingAmount = totalAmount - protocolFee;
+
+            // transfer protocol fee
+            ERC20(_token).safeTransferFrom(msg.sender, treasury, protocolFee);
+
+            // transfer amount
+            ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
+            emit SuccessfulPayment(
+                msg.sender, _recipient, subscriptionIndex, _amount, _token, protocolFee, 0, _tipToken, _terms
+            );
+        } else {
+            subscriptionIndex = _createSubscription(
+                _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _delay, _auctionDuration, _sponsor, _index
+            );
+        }
 
         return subscriptionIndex;
     }
@@ -66,7 +156,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
         return _createSubscription(
-            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _delay, _auctionDuration, _index
+            _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _delay, _auctionDuration, msg.sender, _index
         );
     }
 
@@ -98,6 +188,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
             _tipToken,
             _cooldown * (_terms + 1),
             _auctionDuration,
+            msg.sender,
             _index
         );
 
@@ -117,6 +208,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         address _tipToken,
         uint256 _delay,
         uint256 _auctionDuration,
+        address _sponsor,
         uint256 _index
     ) private returns (uint256 subscriptionIndex) {
         subscriptionIndex = subscriptions.length;
@@ -129,6 +221,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
             Subscription memory newSubscription = Subscription({
                 sender: msg.sender,
                 recipient: _recipient,
+                sponsor: _sponsor,
                 amount: _amount,
                 token: _token,
                 cooldown: _cooldown,
@@ -144,6 +237,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
                 Subscription(
                     msg.sender,
                     _recipient,
+                    _sponsor,
                     _amount,
                     _token,
                     _cooldown,
@@ -182,6 +276,13 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         emit SubscriptionCanceled(_subscriptionIndex, subscription.recipient);
     }
 
+    function revokeSponsorship(uint256 _subscriptionIndex) public override {
+        Subscription storage subscription = subscriptions[_subscriptionIndex];
+        if (subscription.sponsor != msg.sender) revert NotSponsorOfSubscription();
+        subscription.sponsor = subscription.sender;
+        emit SponsorshipRevoked(_subscriptionIndex, subscription.sender);
+    }
+
     // returns (subscriptionIndex, executorFee, executorFeeBasisPoints, tokenAddress)
     function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient)
         public
@@ -202,7 +303,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
 
         executorTip = (subscription.maxTip * secondsInAuctionPeriod) / subscription.auctionDuration;
 
-        require(executorTip <= subscription.maxTip, "Invalid fee basis points");
+        require(executorTip <= subscription.maxTip, "Exceeding max tip");
 
         subscription.lastPayment += subscription.cooldown;
 
@@ -214,7 +315,7 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
         ERC20(subscription.token).safeTransferFrom(subscription.sender, treasury, protocolFee);
 
         // transfer executor fee
-        ERC20(subscription.tipToken).safeTransferFrom(subscription.sender, _feeRecipient, executorTip);
+        ERC20(subscription.tipToken).safeTransferFrom(subscription.sponsor, _feeRecipient, executorTip);
 
         // transfer amount
         ERC20(subscription.token).safeTransferFrom(subscription.sender, subscription.recipient, remainingAmount);
@@ -320,5 +421,33 @@ contract Sub2 is ISub2, FeeManager, ReentrancyGuard {
             subscription.tipToken,
             _terms
         );
+    }
+
+    function invalidateUnorderedNonces(uint256 wordPos, uint256 mask) external {
+        nonceBitmap[msg.sender][wordPos] |= mask;
+
+        emit UnorderedNonceInvalidation(msg.sender, wordPos, mask);
+    }
+
+    /// @notice Returns the index of the bitmap and the bit position within the bitmap. Used for unordered nonces
+    /// @param nonce The nonce to get the associated word and bit positions
+    /// @return wordPos The word position or index into the nonceBitmap
+    /// @return bitPos The bit position
+    /// @dev The first 248 bits of the nonce value is the index of the desired bitmap
+    /// @dev The last 8 bits of the nonce value is the position of the bit in the bitmap
+    function bitmapPositions(uint256 nonce) private pure returns (uint256 wordPos, uint256 bitPos) {
+        wordPos = uint248(nonce >> 8);
+        bitPos = uint8(nonce);
+    }
+
+    /// @notice Checks whether a nonce is taken and sets the bit at the bit position in the bitmap at the word position
+    /// @param from The address to use the nonce at
+    /// @param nonce The nonce to spend
+    function _useUnorderedNonce(address from, uint256 nonce) internal {
+        (uint256 wordPos, uint256 bitPos) = bitmapPositions(nonce);
+        uint256 bit = 1 << bitPos;
+        uint256 flipped = nonceBitmap[from][wordPos] ^= bit;
+
+        if (flipped & bit == 0) revert InvalidNonce();
     }
 }

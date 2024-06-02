@@ -23,6 +23,22 @@ interface ISub2 {
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
+    function createSubscriptionWithSponsor(
+        address _recipient,
+        uint256 _amount,
+        address _token,
+        uint256 _cooldown,
+        uint256 _maxTip,
+        address _tipToken,
+        uint256 _delay,
+        uint256 _terms,
+        uint256 _auctionDuration,
+        uint256 _index,
+        address _sponsor,
+        bytes calldata _signature,
+        SponsorPermit calldata _permit
+    ) external returns (uint256 subscriptionIndex);
+
     /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This can cause unexpected reverts if the same index is used at the same time. type(uint256).max can be used to always ensure a new subscription slot is created.
     /// @param _recipient Recipient of the subscription.
     /// @param _amount Amount of tokens that the recipient will receive.
@@ -76,6 +92,10 @@ interface ISub2 {
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to cancel.
     function cancelExpiredSubscription(uint256 _subscriptionIndex) external;
 
+    /// @notice Can only be called by sponsor of the subscription.
+    /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to cancel.
+    function revokeSponsorship(uint256 _subscriptionIndex) external;
+
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to redeem.
     /// @param _feeRecipient The address that will receive the executor fee.
     /// @return executorTip The the total amount of tokens claimed by the executor.
@@ -119,6 +139,7 @@ interface ISub2 {
     event SubscriptionCanceled(uint256 indexed subscriptionIndex, address indexed recipient);
     event MaxTipUpdated(uint256 subscriptionIndex, uint256 maxTip, address tipToken);
     event AuctionDurationUpdated(uint256 subscriptionIndex, uint256 auctionDuration);
+    event SponsorshipRevoked(uint256 indexed subscriptionIndex, address indexed sender);
 
     /// @notice Thrown when there has not been enough time past since the last payment
     error NotEnoughTimePast();
@@ -156,9 +177,16 @@ interface ISub2 {
     /// @notice Thrown auction time has passed
     error AuctionExpired();
 
+    /// @notice Thrown when caller is not the sponsor of the subscription
+    error NotSponsorOfSubscription();
+
+    /// @notice Emits an event when the owner successfully invalidates an unordered nonce.
+    event UnorderedNonceInvalidation(address indexed owner, uint256 word, uint256 mask);
+
     struct Subscription {
         address sender;
         address recipient;
+        address sponsor;
         uint256 amount;
         address token;
         uint256 cooldown;
@@ -171,5 +199,22 @@ interface ISub2 {
     struct IndexedSubscription {
         uint256 index;
         Subscription subscription;
+    }
+
+    struct SponsorPermit {
+        // a unique value for every token owner's signature to prevent signature replays
+        uint256 nonce;
+        // deadline on the permit signature
+        uint256 deadline;
+        // Subscription specification
+        address recipient;
+        uint256 amount;
+        address token;
+        uint256 cooldown;
+        uint256 delay;
+        uint256 terms;
+        uint256 maxTip;
+        address tipToken;
+        uint256 auctionDuration;
     }
 }

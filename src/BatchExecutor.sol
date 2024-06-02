@@ -44,6 +44,7 @@ contract BatchExecutor is IBatchExecutor {
             (
                 address sender,
                 address recipient,
+                address sponsor,
                 uint256 amount,
                 address token,
                 uint256 cooldown,
@@ -55,6 +56,7 @@ contract BatchExecutor is IBatchExecutor {
             subscriptions[i] = ISub2.Subscription({
                 sender: sender,
                 recipient: recipient,
+                sponsor: sponsor,
                 amount: amount,
                 token: token,
                 cooldown: cooldown,

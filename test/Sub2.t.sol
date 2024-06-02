@@ -9,9 +9,10 @@ import {AmountBuilder} from "./utils/AmountBuilder.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {ISub2} from "../src/interfaces/ISub2.sol";
 import {Sub2} from "../src/Sub2.sol";
+import {PermitSignature} from "./utils/PermitSignature.sol";
 import "forge-std/console2.sol";
 
-contract Sub2Test is Test, TokenProvider, GasSnapshot {
+contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
     using AddressBuilder for address[];
     using AmountBuilder for uint256[];
 
@@ -23,8 +24,8 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
     address from;
     uint256 fromPrivateKey;
 
-    address auth;
-    uint256 authPrivateKey;
+    address sponsor;
+    uint256 sponsorPrivateKey;
 
     uint256 defaultAmount = 10 * 1e6;
 
@@ -50,8 +51,8 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         fromPrivateKey = 0x12341234;
         from = vm.addr(fromPrivateKey);
 
-        authPrivateKey = 0x43214321;
-        auth = vm.addr(authPrivateKey);
+        sponsorPrivateKey = 0x43214321;
+        sponsor = vm.addr(sponsorPrivateKey);
 
         sub2 = new Sub2(treasury, treasuryFeeBasisPoints, address2);
         sub2_2 = new Sub2(treasury, treasuryFeeBasisPoints, address2);
@@ -81,6 +82,53 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
             defaultTipToken,
             defaultAuctionTime,
             defaultIndex
+        );
+        snapEnd();
+
+        uint256 treasuryFee = sub2.calculateFee(defaultAmount, sub2.treasuryFeeBasisPoints());
+
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
+        assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount - treasuryFee);
+        assertEq(token0.balanceOf(treasury), treasuryFee);
+    }
+
+    function test_CreateSubscriptionWithSponsor() public {
+        uint256 startBalanceFrom = token0.balanceOf(from);
+        uint256 startBalanceTo = token0.balanceOf(recipient);
+
+        ISub2.SponsorPermit memory sponsorPermit = ISub2.SponsorPermit({
+            nonce: 0,
+            deadline: UINT256_MAX,
+            recipient: recipient,
+            amount: defaultAmount,
+            token: address(token0),
+            cooldown: defaultCooldown,
+            delay: 0,
+            terms: 1,
+            maxTip: defaultTip,
+            tipToken: defaultTipToken,
+            auctionDuration: defaultAuctionTime
+        });
+
+        bytes memory sig = getSponsorPermitSignature(sponsorPermit, sponsorPrivateKey, sub2.DOMAIN_SEPARATOR());
+
+        vm.prank(from);
+        vm.warp(1641070800);
+        snapStart("createSubscriptionWithSponsor");
+        sub2.createSubscriptionWithSponsor(
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultTip,
+            defaultTipToken,
+            0,
+            1,
+            defaultAuctionTime,
+            defaultIndex,
+            sponsor,
+            sig,
+            sponsorPermit
         );
         snapEnd();
 
@@ -429,7 +477,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
             defaultIndex
         );
 
-        (address sender,,,,,,,,) = sub2.subscriptions(0);
+        (address sender,,,,,,,,,) = sub2.subscriptions(0);
         assertEq(sender, from);
         assertEq(token0.balanceOf(from), startBalanceFrom);
         assertEq(token0.balanceOf(recipient), startBalanceTo);
@@ -467,7 +515,7 @@ contract Sub2Test is Test, TokenProvider, GasSnapshot {
         );
         snapEnd();
 
-        (address sender,,,,,,,,) = sub2.subscriptions(subIndex);
+        (address sender,,,,,,,,,) = sub2.subscriptions(subIndex);
         assertEq(sender, address2);
     }
 
