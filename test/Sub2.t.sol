@@ -8,8 +8,10 @@ import {AddressBuilder} from "./utils/AddressBuilder.sol";
 import {AmountBuilder} from "./utils/AmountBuilder.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {ISub2} from "../src/interfaces/ISub2.sol";
+
 import {Sub2} from "../src/Sub2.sol";
 import {PermitSignature} from "./utils/PermitSignature.sol";
+import {SignatureVerification} from "../src/libraries/SignatureVerification.sol";
 import "forge-std/console2.sol";
 
 contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
@@ -128,6 +130,43 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
         assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount - treasuryFee);
         assertEq(token0.balanceOf(treasury), treasuryFee);
+    }
+
+    function test_CreateSubscriptionWithSponsorOtherPermit() public {
+        ISub2.SponsorPermit memory sponsorPermit = ISub2.SponsorPermit({
+            nonce: 0,
+            deadline: UINT256_MAX,
+            recipient: recipient,
+            amount: defaultAmount,
+            token: address(token0),
+            cooldown: defaultCooldown,
+            delay: 0,
+            terms: 1,
+            maxTip: defaultTip,
+            tipToken: defaultTipToken,
+            auctionDuration: defaultAuctionTime
+        });
+
+        bytes memory sig = getSponsorPermitSignature(sponsorPermit, sponsorPrivateKey, sub2.DOMAIN_SEPARATOR());
+
+        ISub2.SponsorPermit memory sponsorPermitOther = ISub2.SponsorPermit({
+            nonce: 0,
+            deadline: UINT256_MAX,
+            recipient: recipient,
+            amount: defaultAmount + 1,
+            token: address(token0),
+            cooldown: defaultCooldown,
+            delay: 0,
+            terms: 1,
+            maxTip: defaultTip,
+            tipToken: defaultTipToken,
+            auctionDuration: defaultAuctionTime
+        });
+
+        vm.prank(from);
+        vm.warp(1641070800);
+        vm.expectRevert(abi.encodeWithSelector(SignatureVerification.InvalidSigner.selector));
+        sub2.createSubscriptionWithSponsor(sponsorPermitOther, sponsor, sig, defaultIndex);
     }
 
     function test_RedeemPayment() public {
@@ -573,5 +612,27 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.warp(1641070800 + defaultCooldown + defaultAuctionTime + 1);
         vm.prank(cancelling);
         sub2.cancelExpiredSubscription(subIndex);
+    }
+
+    function test_SponsorTest() public {
+        ISub2.SponsorPermit memory sponsorPermit = ISub2.SponsorPermit({
+            nonce: 0,
+            deadline: UINT256_MAX,
+            recipient: recipient,
+            amount: defaultAmount,
+            token: address(token0),
+            cooldown: defaultCooldown,
+            delay: 0,
+            terms: 1,
+            maxTip: defaultTip,
+            tipToken: defaultTipToken,
+            auctionDuration: defaultAuctionTime
+        });
+
+        bytes memory sig = getSponsorPermitSignature(sponsorPermit, sponsorPrivateKey, sub2.DOMAIN_SEPARATOR());
+
+        vm.prank(from);
+        vm.warp(1641070800);
+        sub2.createSubscriptionWithSponsor(sponsorPermit, sponsor, sig, UINT256_MAX);
     }
 }
