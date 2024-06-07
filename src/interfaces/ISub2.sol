@@ -51,7 +51,7 @@ interface ISub2 {
     /// @param _feeRecipient The address that will receive the executor fee.
     /// @return executorTip The the total amount of tokens claimed by the executor.
     /// @return tipToken The address of the tip of the subscription that was redeemed.
-    function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient)
+    function processPayment(uint256 _subscriptionIndex, address _feeRecipient)
         external
         returns (uint256 executorTip, address tipToken);
 
@@ -70,15 +70,11 @@ interface ISub2 {
     function getSubscriptionsRecipient(address _recipient) external view returns (IndexedSubscription[] memory);
     function getNumberOfSubscriptions() external view returns (uint256);
 
-    /// @notice Can only be called by the owner of the subscription.
-    /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to prepay.
-    /// @param _terms The number of terms to prepay.
-    function prePay(uint256 _subscriptionIndex, uint256 _terms) external;
-
     event SuccessfulPayment(
         address indexed from,
         address indexed to,
         uint256 indexed subscriptionIndex,
+        address sponsor,
         uint256 amount,
         address token,
         uint256 protocolFee,

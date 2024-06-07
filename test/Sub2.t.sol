@@ -169,7 +169,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.createSubscriptionWithSponsor(sponsorPermitOther, sponsor, sig, defaultIndex);
     }
 
-    function test_RedeemPayment() public {
+    function test_ProcessPayment() public {
         uint256 startBalanceFrom = token0.balanceOf(from);
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
@@ -195,8 +195,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         vm.prank(executor);
         vm.warp(1641070800 + defaultCooldown);
-        snapStart("redeemPaymentFirst");
-        (uint256 executorFee,) = sub2.redeemPayment(0, executor);
+        snapStart("processPaymentFirst");
+        (uint256 executorFee,) = sub2.processPayment(0, executor);
         snapEnd();
 
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - executorFee, "from balance");
@@ -227,7 +227,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.warp(blockTime + cooldownTime - 1);
         vm.prank(executor);
         vm.expectRevert(abi.encodeWithSelector(ISub2.NotEnoughTimePast.selector));
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
     }
 
     function test_CollectPaymentBeforeCooldownPassed2(uint256 cooldownTime, uint256 blockTime) public {
@@ -251,12 +251,12 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         vm.warp(blockTime + cooldownTime);
         vm.prank(executor);
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
 
         vm.warp(blockTime + cooldownTime * 2 - 1);
         vm.prank(executor);
         vm.expectRevert(abi.encodeWithSelector(ISub2.NotEnoughTimePast.selector));
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
     }
 
     function test_CollectPaymentAfterCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
@@ -282,12 +282,12 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         vm.prank(executor);
         vm.warp(blockTime + cooldownTime);
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
     }
 
     function testFail_RedeemingNonExistentSubscription() public {
         vm.prank(executor);
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
     }
 
     function test_CancelSubscriptionUser() public {
@@ -375,7 +375,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         vm.prank(executor);
         vm.expectRevert(abi.encodeWithSelector(ISub2.SubscriptionIsCanceled.selector));
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
     }
 
     function test_RedeemingExpiredSubscription() public {
@@ -397,7 +397,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.prank(executor);
         vm.warp(1641070800 + defaultCooldown + defaultAuctionTime + 1);
         vm.expectRevert(abi.encodeWithSelector(ISub2.AuctionExpired.selector));
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
     }
 
     function testFail_NotEnoughBalance() public {
@@ -418,7 +418,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         );
 
         vm.prank(from);
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
     }
 
     function test_ExecutorFeeChangeSameOutputAmount(uint256 oldTip, uint256 newTip, uint256 blockTime) public {
@@ -445,7 +445,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
         vm.prank(executor);
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
 
         uint256 startBalanceToSecond = token0.balanceOf(recipient);
         uint256 toBalanceDifferenceFirst = startBalanceToSecond - startBalanceTo;
@@ -455,7 +455,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.updateMaxTip(0, newTip, defaultTipToken);
 
         vm.prank(executor);
-        sub2.redeemPayment(0, executor);
+        sub2.processPayment(0, executor);
 
         uint256 toBalanceDifferenceSecond = token0.balanceOf(recipient) - startBalanceToSecond;
 
@@ -490,8 +490,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         vm.warp(blockTime + defaultCooldown + waitTime);
         vm.prank(executor);
-        snapStart("redeemPaymentFirst");
-        (uint256 executorTip,) = sub2.redeemPayment(0, executor);
+        snapStart("processPaymentFirst");
+        (uint256 executorTip,) = sub2.processPayment(0, executor);
         snapEnd();
 
         assertGe(defaultTip, executorTip, "executor fee bps higher than max");

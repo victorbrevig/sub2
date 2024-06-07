@@ -29,9 +29,10 @@ contract Faucet {
             revert("Can only drip once per day");
         }
 
-        ERC20(WETH).safeTransfer(msg.sender, 100);
-        ERC20(USDC).safeTransfer(msg.sender, 100);
-        ERC20(DAI).safeTransfer(msg.sender, 100);
-        ERC20(WBTC).safeTransfer(msg.sender, 100);
+        // 100 for every token (adjusted by decimals)
+        ERC20(WETH).safeTransfer(msg.sender, 100000000000000000000);
+        ERC20(USDC).safeTransfer(msg.sender, 100000000);
+        ERC20(DAI).safeTransfer(msg.sender, 100000000000000000000);
+        ERC20(WBTC).safeTransfer(msg.sender, 10000000000);
     }
 }

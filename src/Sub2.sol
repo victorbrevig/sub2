@@ -138,7 +138,16 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             // transfer amount
             ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
             emit SuccessfulPayment(
-                msg.sender, _recipient, subscriptionIndex, _amount, _token, protocolFee, 0, _tipToken, _terms
+                msg.sender,
+                _recipient,
+                subscriptionIndex,
+                msg.sender,
+                _amount,
+                _token,
+                protocolFee,
+                0,
+                _tipToken,
+                _terms
             );
         } else {
             subscriptionIndex = _createSubscription(
@@ -234,7 +243,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
     }
 
     // returns (subscriptionIndex, executorFee, executorFeeBasisPoints, tokenAddress)
-    function redeemPayment(uint256 _subscriptionIndex, address _feeRecipient)
+    function processPayment(uint256 _subscriptionIndex, address _feeRecipient)
         public
         override
         returns (uint256 executorTip, address tipToken)
@@ -274,6 +283,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             subscription.sender,
             subscription.recipient,
             _subscriptionIndex,
+            subscription.sponsor,
             subscription.amount,
             subscription.token,
             protocolFee,
@@ -343,34 +353,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
 
     function getNumberOfSubscriptions() public view override returns (uint256) {
         return subscriptions.length;
-    }
-
-    function prePay(uint256 _subscriptionIndex, uint256 _terms) public override {
-        Subscription storage subscription = subscriptions[_subscriptionIndex];
-        if (subscription.sender != msg.sender) revert NotOwnerOfSubscription();
-        if (subscription.sender == address(0)) revert SubscriptionIsCanceled();
-
-        subscription.lastPayment = block.timestamp + subscription.cooldown * _terms;
-
-        uint256 totalAmount = subscription.amount * _terms;
-        uint256 protocolFee = calculateFee(totalAmount, treasuryFeeBasisPoints);
-
-        uint256 remainingAmount = totalAmount - protocolFee;
-
-        ERC20(subscription.token).safeTransferFrom(msg.sender, treasury, protocolFee);
-        ERC20(subscription.token).safeTransferFrom(msg.sender, subscription.recipient, remainingAmount);
-
-        emit SuccessfulPayment(
-            msg.sender,
-            subscription.recipient,
-            _subscriptionIndex,
-            totalAmount,
-            subscription.token,
-            protocolFee,
-            0,
-            subscription.tipToken,
-            _terms
-        );
     }
 
     function invalidateUnorderedNonces(uint256 wordPos, uint256 mask) external {
