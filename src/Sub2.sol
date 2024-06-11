@@ -48,8 +48,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
+        uint256 _maxProcessingFee,
+        address _processingFeeToken,
         uint256 _auctionDuration,
         uint256 _delay,
         uint256 _terms,
@@ -60,8 +60,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             _amount,
             _token,
             _cooldown,
-            _maxTip,
-            _tipToken,
+            _maxProcessingFee,
+            _processingFeeToken,
             _delay,
             _terms,
             _auctionDuration,
@@ -89,8 +89,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             _permit.amount,
             _permit.token,
             _permit.cooldown,
-            _permit.maxTip,
-            _permit.tipToken,
+            _permit.maxProcessingFee,
+            _permit.processingFeeToken,
             _permit.delay,
             _permit.terms,
             _permit.auctionDuration,
@@ -105,8 +105,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
+        uint256 _maxProcessingFee,
+        address _processingFeeToken,
         uint256 _delay,
         uint256 _terms,
         uint256 _auctionDuration,
@@ -119,8 +119,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _amount,
                 _token,
                 _cooldown,
-                _maxTip,
-                _tipToken,
+                _maxProcessingFee,
+                _processingFeeToken,
                 _cooldown * _terms,
                 _auctionDuration,
                 _sponsor,
@@ -146,12 +146,21 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _token,
                 protocolFee,
                 0,
-                _tipToken,
+                _processingFeeToken,
                 _terms
             );
         } else {
             subscriptionIndex = _createSubscription(
-                _recipient, _amount, _token, _cooldown, _maxTip, _tipToken, _delay, _auctionDuration, _sponsor, _index
+                _recipient,
+                _amount,
+                _token,
+                _cooldown,
+                _maxProcessingFee,
+                _processingFeeToken,
+                _delay,
+                _auctionDuration,
+                _sponsor,
+                _index
             );
         }
 
@@ -163,8 +172,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
+        uint256 _maxProcessingFee,
+        address _processingFeeToken,
         uint256 _delay,
         uint256 _auctionDuration,
         address _sponsor,
@@ -185,8 +194,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 token: _token,
                 cooldown: _cooldown,
                 lastPayment: block.timestamp - _cooldown + _delay,
-                maxTip: _maxTip,
-                tipToken: _tipToken,
+                maxProcessingFee: _maxProcessingFee,
+                processingFeeToken: _processingFeeToken,
                 auctionDuration: _auctionDuration
             });
             subscriptionIndex = _index;
@@ -201,8 +210,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                     _token,
                     _cooldown,
                     block.timestamp - _cooldown + _delay,
-                    _maxTip,
-                    _tipToken,
+                    _maxProcessingFee,
+                    _processingFeeToken,
                     _auctionDuration
                 )
             );
@@ -246,7 +255,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
     function processPayment(uint256 _subscriptionIndex, address _feeRecipient)
         public
         override
-        returns (uint256 executorTip, address tipToken)
+        returns (uint256 processingFee, address processingToken)
     {
         Subscription storage subscription = subscriptions[_subscriptionIndex];
 
@@ -260,9 +269,9 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         // calculate executor fee basis points, goes from 0 to subscription.executorFeeBasisPoints over subscription.auctionDuration seconds
         uint256 secondsInAuctionPeriod = block.timestamp - subscription.lastPayment - subscription.cooldown;
 
-        executorTip = (subscription.maxTip * secondsInAuctionPeriod) / subscription.auctionDuration;
+        processingFee = (subscription.maxProcessingFee * secondsInAuctionPeriod) / subscription.auctionDuration;
 
-        require(executorTip <= subscription.maxTip, "Exceeding max tip");
+        require(processingFee <= subscription.maxProcessingFee, "Exceeding maximum processing fee");
 
         subscription.lastPayment += subscription.cooldown;
 
@@ -274,7 +283,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         ERC20(subscription.token).safeTransferFrom(subscription.sender, treasury, protocolFee);
 
         // transfer executor fee
-        ERC20(subscription.tipToken).safeTransferFrom(subscription.sponsor, _feeRecipient, executorTip);
+        ERC20(subscription.processingFeeToken).safeTransferFrom(subscription.sponsor, _feeRecipient, processingFee);
 
         // transfer amount
         ERC20(subscription.token).safeTransferFrom(subscription.sender, subscription.recipient, remainingAmount);
@@ -287,15 +296,18 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             subscription.amount,
             subscription.token,
             protocolFee,
-            executorTip,
-            subscription.tipToken,
+            processingFee,
+            subscription.processingFeeToken,
             1
         );
 
-        return (executorTip, subscription.tipToken);
+        return (processingFee, subscription.processingFeeToken);
     }
 
-    function updateMaxTip(uint256 _subscriptionIndex, uint256 _maxTip, address _tipToken) public override {
+    function updateMaxProcessingFee(uint256 _subscriptionIndex, uint256 _maxProcessingFee, address _processingFeeToken)
+        public
+        override
+    {
         Subscription storage subscription = subscriptions[_subscriptionIndex];
         if (subscription.sponsor != msg.sender) revert NotSponsorOfSubscription();
         if (
@@ -303,10 +315,10 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 && block.timestamp < subscription.lastPayment + subscription.cooldown + subscription.auctionDuration
         ) revert InFeeAuctionPeriod();
 
-        subscription.maxTip = _maxTip;
-        subscription.tipToken = _tipToken;
+        subscription.maxProcessingFee = _maxProcessingFee;
+        subscription.processingFeeToken = _processingFeeToken;
 
-        emit MaxTipUpdated(_subscriptionIndex, _maxTip, _tipToken);
+        emit MaxProcessingFeeUpdated(_subscriptionIndex, _maxProcessingFee, _processingFeeToken);
     }
 
     function updateAuctionDuration(uint256 _subscriptionIndex, uint256 _auctionDuration) public override {
@@ -320,35 +332,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
 
         subscription.auctionDuration = _auctionDuration;
         emit AuctionDurationUpdated(_subscriptionIndex, _auctionDuration);
-    }
-
-    function getSubscriptionsSender(address _sender) public view override returns (IndexedSubscription[] memory) {
-        uint16 nonce = userSubscriptionNonce[_sender];
-        IndexedSubscription[] memory userSubscriptions = new IndexedSubscription[](nonce);
-
-        for (uint16 i = 0; i < nonce; ++i) {
-            uint256 index = userToSubscriptionIndex[_sender][i];
-            userSubscriptions[i] = IndexedSubscription({index: index, subscription: subscriptions[index]});
-        }
-
-        return userSubscriptions;
-    }
-
-    function getSubscriptionsRecipient(address _recipient)
-        public
-        view
-        override
-        returns (IndexedSubscription[] memory)
-    {
-        uint32 nonce = recipientSubscriptionNonce[_recipient];
-        IndexedSubscription[] memory recipientSubscriptions = new IndexedSubscription[](nonce);
-
-        for (uint16 i = 0; i < nonce; ++i) {
-            uint256 index = recipientToSubscriptionIndex[_recipient][i];
-            recipientSubscriptions[i] = IndexedSubscription({index: index, subscription: subscriptions[index]});
-        }
-
-        return recipientSubscriptions;
     }
 
     function getNumberOfSubscriptions() public view override returns (uint256) {

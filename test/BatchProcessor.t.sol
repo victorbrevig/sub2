@@ -9,8 +9,8 @@ import {AmountBuilder} from "./utils/AmountBuilder.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {ISub2} from "../src/interfaces/ISub2.sol";
 import {Sub2} from "../src/Sub2.sol";
-import {IBatchExecutor} from "../src/interfaces/IBatchExecutor.sol";
-import {BatchExecutor} from "../src/BatchExecutor.sol";
+import {IBatchProcessor} from "../src/interfaces/IBatchProcessor.sol";
+import {BatchProcessor} from "../src/BatchProcessor.sol";
 import {ERC20Token} from "../src/ERC20Token.sol";
 
 contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
@@ -20,7 +20,7 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
     event Transfer(address indexed from, address indexed token, address indexed to, uint256 amount);
 
     Sub2 erc20Subscription;
-    BatchExecutor batchExecutor;
+    BatchProcessor batchProcessor;
 
     address from;
     uint256 fromPrivateKey;
@@ -36,11 +36,11 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
 
     address treasury = address(0x4);
 
-    address executor = address(0x5);
+    address processor = address(0x5);
 
     uint16 treasuryFeeBasisPoints = 2000;
 
-    uint256 defaultTip = 10 * 1e5;
+    uint256 defaultProcessingFee = 10 * 1e5;
 
     uint256 defaultCooldown = 1800;
     uint256 defaultAuctionTime = 1800;
@@ -48,7 +48,7 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
     uint256 defaultDelay = 0;
     uint256 defaultTerms = 1;
 
-    address defaultTipToken;
+    address defaultProcessingFeeToken;
 
     uint256 defaultIndex = type(uint256).max;
 
@@ -63,9 +63,9 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         setERC20TestTokens(from);
         setERC20TestTokenApprovals(vm, from, address(erc20Subscription));
 
-        defaultTipToken = address(token0);
+        defaultProcessingFeeToken = address(token0);
 
-        batchExecutor = new BatchExecutor(erc20Subscription);
+        batchProcessor = new BatchProcessor(erc20Subscription);
     }
 
     function test_CorrectClaimableAmountAfterSuccessfulExecution() public {
@@ -81,8 +81,8 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -91,16 +91,16 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
 
         uint256[] memory subscriptionIndices = new uint256[](1);
         subscriptionIndices.push(0);
-        vm.prank(executor);
+        vm.prank(processor);
         vm.warp(1641070800 + defaultCooldown);
-        IBatchExecutor.Receipt[] memory receipts = batchExecutor.executeBatch(subscriptionIndices, address(executor));
+        IBatchProcessor.Receipt[] memory receipts = batchProcessor.processBatch(subscriptionIndices, address(processor));
 
-        uint256 executorTip = receipts[0].executorTip;
+        uint256 processingFee = receipts[0].processingFee;
 
-        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - executorTip, "from balance");
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - processingFee, "from balance");
         assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount * 2 - treasuryFee * 2, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee * 2, "treasury balance");
-        assertEq(token0.balanceOf(executor), executorTip, "executor balance");
+        assertEq(token0.balanceOf(processor), processingFee, "executor balance");
     }
 
     function test_CorrectClaimableAmountAfterUnsuccessfulExecution() public {
@@ -117,8 +117,8 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -129,12 +129,12 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         subscriptionIndices.push(0);
 
         vm.warp(1641070800 + defaultCooldown - 1);
-        vm.prank(executor);
-        batchExecutor.executeBatch(subscriptionIndices, address(executor));
+        vm.prank(processor);
+        batchProcessor.processBatch(subscriptionIndices, address(processor));
 
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount, "from balance");
         assertEq(token0.balanceOf(recipient), defaultAmount - treasuryFee, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance");
-        assertEq(token0.balanceOf(executor), 0, "executor balance");
+        assertEq(token0.balanceOf(processor), 0, "processor balance");
     }
 }

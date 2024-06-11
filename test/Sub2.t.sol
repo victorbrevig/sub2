@@ -33,14 +33,14 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
     address address0 = address(0x0);
     address address2 = address(0x2);
-    address executor = address(0x3);
+    address processor = address(0x3);
 
     address recipient = address(0x1);
 
     address treasury = address(0x4);
     uint16 treasuryFeeBasisPoints = 2000;
 
-    uint256 defaultTip = 10 * 1e5;
+    uint256 defaultProcessingFee = 10 * 1e5;
 
     uint256 defaultCooldown = 1800;
     uint256 defaultAuctionTime = 1800;
@@ -48,7 +48,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
     uint256 defaultDelay = 0;
     uint256 defaultTerms = 1;
 
-    address defaultTipToken;
+    address defaultProcessingFeeToken;
 
     uint256 defaultIndex = type(uint256).max;
 
@@ -63,7 +63,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2_2 = new Sub2(treasury, treasuryFeeBasisPoints, address2);
 
         initializeERC20Tokens();
-        defaultTipToken = address(token0);
+        defaultProcessingFeeToken = address(token0);
 
         setERC20TestTokens(from);
         setERC20TestTokenApprovals(vm, from, address(sub2));
@@ -83,8 +83,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -112,8 +112,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             cooldown: defaultCooldown,
             delay: 0,
             terms: 1,
-            maxTip: defaultTip,
-            tipToken: defaultTipToken,
+            maxProcessingFee: defaultProcessingFee,
+            processingFeeToken: defaultProcessingFeeToken,
             auctionDuration: defaultAuctionTime
         });
 
@@ -142,8 +142,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             cooldown: defaultCooldown,
             delay: 0,
             terms: 1,
-            maxTip: defaultTip,
-            tipToken: defaultTipToken,
+            maxProcessingFee: defaultProcessingFee,
+            processingFeeToken: defaultProcessingFeeToken,
             auctionDuration: defaultAuctionTime
         });
 
@@ -158,8 +158,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             cooldown: defaultCooldown,
             delay: 0,
             terms: 1,
-            maxTip: defaultTip,
-            tipToken: defaultTipToken,
+            maxProcessingFee: defaultProcessingFee,
+            processingFeeToken: defaultProcessingFeeToken,
             auctionDuration: defaultAuctionTime
         });
 
@@ -182,27 +182,27 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
             defaultIndex
         );
 
-        assertEq(token0.balanceOf(executor), 0, "executor balance not 0");
+        assertEq(token0.balanceOf(processor), 0, "processor balance not 0");
         assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance too much");
 
-        vm.prank(executor);
+        vm.prank(processor);
         vm.warp(1641070800 + defaultCooldown);
         snapStart("processPaymentFirst");
-        (uint256 executorFee,) = sub2.processPayment(0, executor);
+        (uint256 processingFee,) = sub2.processPayment(0, processor);
         snapEnd();
 
-        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - executorFee, "from balance");
+        assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - processingFee, "from balance");
         assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount * 2 - treasuryFee * 2, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee * 2, "treasury balance");
-        assertEq(token0.balanceOf(executor), executorFee, "executor balance");
+        assertEq(token0.balanceOf(processor), processingFee, "processor balance");
     }
 
     function test_CollectPaymentBeforeCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
@@ -216,8 +216,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             cooldownTime,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -225,9 +225,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         );
 
         vm.warp(blockTime + cooldownTime - 1);
-        vm.prank(executor);
+        vm.prank(processor);
         vm.expectRevert(abi.encodeWithSelector(ISub2.NotEnoughTimePast.selector));
-        sub2.processPayment(0, executor);
+        sub2.processPayment(0, processor);
     }
 
     function test_CollectPaymentBeforeCooldownPassed2(uint256 cooldownTime, uint256 blockTime) public {
@@ -241,8 +241,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             cooldownTime,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -250,13 +250,13 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         );
 
         vm.warp(blockTime + cooldownTime);
-        vm.prank(executor);
-        sub2.processPayment(0, executor);
+        vm.prank(processor);
+        sub2.processPayment(0, processor);
 
         vm.warp(blockTime + cooldownTime * 2 - 1);
-        vm.prank(executor);
+        vm.prank(processor);
         vm.expectRevert(abi.encodeWithSelector(ISub2.NotEnoughTimePast.selector));
-        sub2.processPayment(0, executor);
+        sub2.processPayment(0, processor);
     }
 
     function test_CollectPaymentAfterCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
@@ -272,22 +272,22 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             cooldownTime,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
             defaultIndex
         );
 
-        vm.prank(executor);
+        vm.prank(processor);
         vm.warp(blockTime + cooldownTime);
-        sub2.processPayment(0, executor);
+        sub2.processPayment(0, processor);
     }
 
     function testFail_RedeemingNonExistentSubscription() public {
-        vm.prank(executor);
-        sub2.processPayment(0, executor);
+        vm.prank(processor);
+        sub2.processPayment(0, processor);
     }
 
     function test_CancelSubscriptionUser() public {
@@ -298,8 +298,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -318,8 +318,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -341,8 +341,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -362,8 +362,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -373,9 +373,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.prank(from);
         sub2.cancelSubscription(0);
 
-        vm.prank(executor);
+        vm.prank(processor);
         vm.expectRevert(abi.encodeWithSelector(ISub2.SubscriptionIsCanceled.selector));
-        sub2.processPayment(0, executor);
+        sub2.processPayment(0, processor);
     }
 
     function test_RedeemingExpiredSubscription() public {
@@ -386,18 +386,18 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
             defaultIndex
         );
 
-        vm.prank(executor);
+        vm.prank(processor);
         vm.warp(1641070800 + defaultCooldown + defaultAuctionTime + 1);
         vm.expectRevert(abi.encodeWithSelector(ISub2.AuctionExpired.selector));
-        sub2.processPayment(0, executor);
+        sub2.processPayment(0, processor);
     }
 
     function testFail_NotEnoughBalance() public {
@@ -409,8 +409,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             startBalanceFrom,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -418,14 +418,14 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         );
 
         vm.prank(from);
-        sub2.processPayment(0, executor);
+        sub2.processPayment(0, processor);
     }
 
-    function test_ExecutorFeeChangeSameOutputAmount(uint256 oldTip, uint256 newTip, uint256 blockTime) public {
+    function test_ProcessingFeeChangeSameOutputAmount(uint256 oldFee, uint256 newFee, uint256 blockTime) public {
         uint256 startBalanceFrom = token0.balanceOf(from);
         blockTime = bound(blockTime, defaultCooldown, type(uint256).max - defaultAuctionTime - defaultCooldown);
-        vm.assume(oldTip < startBalanceFrom / 4);
-        vm.assume(newTip < startBalanceFrom / 4);
+        vm.assume(oldFee < startBalanceFrom / 4);
+        vm.assume(newFee < startBalanceFrom / 4);
 
         vm.warp(blockTime);
         vm.prank(from);
@@ -434,8 +434,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             0,
@@ -444,18 +444,18 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         uint256 startBalanceTo = token0.balanceOf(recipient);
 
-        vm.prank(executor);
-        sub2.processPayment(0, executor);
+        vm.prank(processor);
+        sub2.processPayment(0, processor);
 
         uint256 startBalanceToSecond = token0.balanceOf(recipient);
         uint256 toBalanceDifferenceFirst = startBalanceToSecond - startBalanceTo;
 
         vm.warp(blockTime + defaultCooldown + defaultAuctionTime);
         vm.prank(from);
-        sub2.updateMaxTip(0, newTip, defaultTipToken);
+        sub2.updateMaxProcessingFee(0, newFee, defaultProcessingFeeToken);
 
-        vm.prank(executor);
-        sub2.processPayment(0, executor);
+        vm.prank(processor);
+        sub2.processPayment(0, processor);
 
         uint256 toBalanceDifferenceSecond = token0.balanceOf(recipient) - startBalanceToSecond;
 
@@ -476,8 +476,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -485,16 +485,16 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         );
         snapEnd();
 
-        assertEq(token0.balanceOf(executor), 0, "executor balance not 0");
+        assertEq(token0.balanceOf(processor), 0, "processor balance not 0");
         assertEq(token0.balanceOf(treasury), treasuryFee, "treasury balance too much");
 
         vm.warp(blockTime + defaultCooldown + waitTime);
-        vm.prank(executor);
+        vm.prank(processor);
         snapStart("processPaymentFirst");
-        (uint256 executorTip,) = sub2.processPayment(0, executor);
+        (uint256 processingFee,) = sub2.processPayment(0, processor);
         snapEnd();
 
-        assertGe(defaultTip, executorTip, "executor fee bps higher than max");
+        assertGe(defaultProcessingFee, processingFee, "processing fee larger than max");
     }
 
     function test_CreateSubscriptionWithoutFirstPayment() public {
@@ -508,8 +508,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             0,
@@ -530,8 +530,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -548,8 +548,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             0,
@@ -569,8 +569,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -584,8 +584,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -601,8 +601,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultAmount,
             address(token0),
             defaultCooldown,
-            defaultTip,
-            defaultTipToken,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
             defaultAuctionTime,
             defaultDelay,
             defaultTerms,
@@ -624,8 +624,8 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             cooldown: defaultCooldown,
             delay: 0,
             terms: 1,
-            maxTip: defaultTip,
-            tipToken: defaultTipToken,
+            maxProcessingFee: defaultProcessingFee,
+            processingFeeToken: defaultProcessingFeeToken,
             auctionDuration: defaultAuctionTime
         });
 

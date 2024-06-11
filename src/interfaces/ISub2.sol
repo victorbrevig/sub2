@@ -8,8 +8,8 @@ interface ISub2 {
     /// @param _amount Amount of tokens that the recipient will receive.
     /// @param _token Address of ERC20 token that will be used for the subscription.
     /// @param _cooldown Amount of time in seconds that must pass between payments.
-    /// @param _maxTip The maximum amount of _timToken that can be sent as a tip to an executor.
-    /// @param _tipToken Address of ERC20 token that will be used for the tip.
+    /// @param _maxProcessingFee The maximum amount of _processingFeeToken that can be sent as a fee to a processor.
+    /// @param _processingFeeToken Address of ERC20 token that will be used for processing fee.
     /// @param _auctionDuration The duration of the auction period in seconds.
     /// @param _delay Amount of time in seconds that must pass before the first payment.
     /// @param _terms The number of terms to pay initially.
@@ -20,8 +20,8 @@ interface ISub2 {
         uint256 _amount,
         address _token,
         uint256 _cooldown,
-        uint256 _maxTip,
-        address _tipToken,
+        uint256 _maxProcessingFee,
+        address _processingFeeToken,
         uint256 _auctionDuration,
         uint256 _delay,
         uint256 _terms,
@@ -49,25 +49,24 @@ interface ISub2 {
 
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to redeem.
     /// @param _feeRecipient The address that will receive the executor fee.
-    /// @return executorTip The the total amount of tokens claimed by the executor.
-    /// @return tipToken The address of the tip of the subscription that was redeemed.
+    /// @return processingFee The the total amount of tokens claimed by the processor.
+    /// @return processingFeeToken The address of the processing fee token.
     function processPayment(uint256 _subscriptionIndex, address _feeRecipient)
         external
-        returns (uint256 executorTip, address tipToken);
+        returns (uint256 processingFee, address processingFeeToken);
 
     /// @notice Can only be called by the owner of the subscription.
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to update.
-    /// @param _maxTip The new maximum tip of tokens to be claimed by an executor.
-    /// @param _tipToken The new token to be used for the tip.
-    function updateMaxTip(uint256 _subscriptionIndex, uint256 _maxTip, address _tipToken) external;
+    /// @param _maxProcessingFee The new maximum fee to be claimed by a processor.
+    /// @param _processingFeeToken The new token to be used for the tip.
+    function updateMaxProcessingFee(uint256 _subscriptionIndex, uint256 _maxProcessingFee, address _processingFeeToken)
+        external;
 
     /// @notice Can only be called by the recipient of the subscription.
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to update.
     /// @param _auctionDuration The new auction duration of the subscription.
     function updateAuctionDuration(uint256 _subscriptionIndex, uint256 _auctionDuration) external;
 
-    function getSubscriptionsSender(address _sender) external view returns (IndexedSubscription[] memory);
-    function getSubscriptionsRecipient(address _recipient) external view returns (IndexedSubscription[] memory);
     function getNumberOfSubscriptions() external view returns (uint256);
 
     event SuccessfulPayment(
@@ -78,13 +77,13 @@ interface ISub2 {
         uint256 amount,
         address token,
         uint256 protocolFee,
-        uint256 executorTip,
-        address tipToken,
+        uint256 processingFee,
+        address processingFeeToken,
         uint256 terms
     );
     event SubscriptionCreated(uint256 indexed subscriptionIndex, address indexed recipient);
     event SubscriptionCanceled(uint256 indexed subscriptionIndex, address indexed recipient);
-    event MaxTipUpdated(uint256 subscriptionIndex, uint256 maxTip, address tipToken);
+    event MaxProcessingFeeUpdated(uint256 subscriptionIndex, uint256 maxProcessingFee, address processingFeeToken);
     event AuctionDurationUpdated(uint256 subscriptionIndex, uint256 auctionDuration);
     event SponsorshipRevoked(uint256 indexed subscriptionIndex, address indexed sender);
 
@@ -138,8 +137,8 @@ interface ISub2 {
         address token;
         uint256 cooldown;
         uint256 lastPayment;
-        uint256 maxTip;
-        address tipToken;
+        uint256 maxProcessingFee;
+        address processingFeeToken;
         uint256 auctionDuration;
     }
 
@@ -160,8 +159,8 @@ interface ISub2 {
         uint256 cooldown;
         uint256 delay;
         uint256 terms;
-        uint256 maxTip;
-        address tipToken;
+        uint256 maxProcessingFee;
+        address processingFeeToken;
         uint256 auctionDuration;
     }
 }
