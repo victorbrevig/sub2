@@ -254,6 +254,6 @@ contract QuerierTest is Test, TokenProvider, GasSnapshot {
         subscriptionIndices[0] = 0;
         subscriptionIndices[1] = 3;
 
-        ISub2.Subscription[] memory subs = querier.getSubscriptions(subscriptionIndices);
+        querier.getSubscriptions(subscriptionIndices);
     }
 }

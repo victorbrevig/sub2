@@ -52,7 +52,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         address _processingFeeToken,
         uint256 _auctionDuration,
         uint256 _delay,
-        uint256 _initialTerms,
+        uint256 _initialPayments,
         uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
         subscriptionIndex = _createCreateSubscription(
@@ -63,7 +63,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             _maxProcessingFee,
             _processingFeeToken,
             _delay,
-            _initialTerms,
+            _initialPayments,
             _auctionDuration,
             msg.sender,
             _index
@@ -92,7 +92,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             _permit.maxProcessingFee,
             _permit.processingFeeToken,
             _permit.delay,
-            _permit.initialTerms,
+            _permit.initialPayments,
             _permit.auctionDuration,
             _sponsor,
             _index
@@ -108,7 +108,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _maxProcessingFee,
         address _processingFeeToken,
         uint256 _delay,
-        uint256 _initialTerms,
+        uint256 _initialPayments,
         uint256 _auctionDuration,
         address _sponsor,
         uint256 _index
@@ -121,13 +121,14 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _cooldown,
                 _maxProcessingFee,
                 _processingFeeToken,
-                _cooldown * _initialTerms,
+                _cooldown * _initialPayments,
                 _auctionDuration,
                 _sponsor,
+                _initialPayments,
                 _index
             );
             // initial payment
-            uint256 totalAmount = _amount * _initialTerms;
+            uint256 totalAmount = _amount * _initialPayments;
             uint256 protocolFee = calculateFee(totalAmount, treasuryFeeBasisPoints);
 
             uint256 remainingAmount = totalAmount - protocolFee;
@@ -147,7 +148,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 protocolFee,
                 0,
                 _processingFeeToken,
-                _initialTerms
+                _initialPayments
             );
         } else {
             subscriptionIndex = _createSubscription(
@@ -160,6 +161,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _delay,
                 _auctionDuration,
                 _sponsor,
+                0,
                 _index
             );
         }
@@ -177,6 +179,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _delay,
         uint256 _auctionDuration,
         address _sponsor,
+        uint256 _totalPayments,
         uint256 _index
     ) private returns (uint256 subscriptionIndex) {
         subscriptionIndex = subscriptions.length;
@@ -196,7 +199,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 lastPayment: block.timestamp - _cooldown + _delay,
                 maxProcessingFee: _maxProcessingFee,
                 processingFeeToken: _processingFeeToken,
-                auctionDuration: _auctionDuration
+                auctionDuration: _auctionDuration,
+                totalPayments: _totalPayments
             });
             subscriptionIndex = _index;
             subscriptions[subscriptionIndex] = newSubscription;
@@ -212,7 +216,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                     block.timestamp - _cooldown + _delay,
                     _maxProcessingFee,
                     _processingFeeToken,
-                    _auctionDuration
+                    _auctionDuration,
+                    _totalPayments
                 )
             );
         }

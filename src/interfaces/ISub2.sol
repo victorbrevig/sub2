@@ -12,7 +12,7 @@ interface ISub2 {
     /// @param _processingFeeToken Address of ERC20 token that will be used for processing fee.
     /// @param _auctionDuration The duration of the auction period in seconds.
     /// @param _delay Amount of time in seconds that must pass before the first payment.
-    /// @param _initialTerms The number of terms to pay initially.
+    /// @param _initialPayments The number of initial payments.
     /// @param _index The index of the subscription created in Subscriptions.
     /// @return subscriptionIndex The index of the subscription created in Subscriptions.
     function createSubscription(
@@ -24,7 +24,7 @@ interface ISub2 {
         address _processingFeeToken,
         uint256 _auctionDuration,
         uint256 _delay,
-        uint256 _initialTerms,
+        uint256 _initialPayments,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
@@ -137,6 +137,7 @@ interface ISub2 {
         uint256 maxProcessingFee;
         address processingFeeToken;
         uint256 auctionDuration;
+        uint256 totalPayments;
     }
 
     struct IndexedSubscription {
@@ -152,7 +153,7 @@ interface ISub2 {
         address token;
         uint256 cooldown;
         uint256 delay;
-        uint256 initialTerms;
+        uint256 initialPayments;
         uint256 maxProcessingFee;
         address processingFeeToken;
         uint256 auctionDuration;
