@@ -52,7 +52,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         address _processingFeeToken,
         uint256 _auctionDuration,
         uint256 _delay,
-        uint256 _terms,
+        uint256 _initialTerms,
         uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
         subscriptionIndex = _createCreateSubscription(
@@ -63,7 +63,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             _maxProcessingFee,
             _processingFeeToken,
             _delay,
-            _terms,
+            _initialTerms,
             _auctionDuration,
             msg.sender,
             _index
@@ -92,7 +92,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             _permit.maxProcessingFee,
             _permit.processingFeeToken,
             _permit.delay,
-            _permit.terms,
+            _permit.initialTerms,
             _permit.auctionDuration,
             _sponsor,
             _index
@@ -108,7 +108,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _maxProcessingFee,
         address _processingFeeToken,
         uint256 _delay,
-        uint256 _terms,
+        uint256 _initialTerms,
         uint256 _auctionDuration,
         address _sponsor,
         uint256 _index
@@ -121,13 +121,13 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _cooldown,
                 _maxProcessingFee,
                 _processingFeeToken,
-                _cooldown * _terms,
+                _cooldown * _initialTerms,
                 _auctionDuration,
                 _sponsor,
                 _index
             );
             // initial payment
-            uint256 totalAmount = _amount * _terms;
+            uint256 totalAmount = _amount * _initialTerms;
             uint256 protocolFee = calculateFee(totalAmount, treasuryFeeBasisPoints);
 
             uint256 remainingAmount = totalAmount - protocolFee;
@@ -137,7 +137,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
 
             // transfer amount
             ERC20(_token).safeTransferFrom(msg.sender, _recipient, remainingAmount);
-            emit SuccessfulPayment(
+            emit Payment(
                 msg.sender,
                 _recipient,
                 subscriptionIndex,
@@ -147,7 +147,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 protocolFee,
                 0,
                 _processingFeeToken,
-                _terms
+                _initialTerms
             );
         } else {
             subscriptionIndex = _createSubscription(
@@ -251,7 +251,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         emit SponsorshipRevoked(_subscriptionIndex, subscription.sender);
     }
 
-    // returns (subscriptionIndex, executorFee, executorFeeBasisPoints, tokenAddress)
     function processPayment(uint256 _subscriptionIndex, address _feeRecipient)
         public
         override
@@ -271,24 +270,21 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
 
         processingFee = (subscription.maxProcessingFee * secondsInAuctionPeriod) / subscription.auctionDuration;
 
-        require(processingFee <= subscription.maxProcessingFee, "Exceeding maximum processing fee");
+        if (processingFee > subscription.maxProcessingFee) revert ExceedingMaxProcessingFee();
 
         subscription.lastPayment += subscription.cooldown;
 
         uint256 protocolFee = calculateFee(subscription.amount, treasuryFeeBasisPoints);
-
         uint256 remainingAmount = subscription.amount - protocolFee;
 
         // transfer protocol fee
         ERC20(subscription.token).safeTransferFrom(subscription.sender, treasury, protocolFee);
-
         // transfer executor fee
         ERC20(subscription.processingFeeToken).safeTransferFrom(subscription.sponsor, _feeRecipient, processingFee);
-
         // transfer amount
         ERC20(subscription.token).safeTransferFrom(subscription.sender, subscription.recipient, remainingAmount);
 
-        emit SuccessfulPayment(
+        emit Payment(
             subscription.sender,
             subscription.recipient,
             _subscriptionIndex,
@@ -310,10 +306,12 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
     {
         Subscription storage subscription = subscriptions[_subscriptionIndex];
         if (subscription.sponsor != msg.sender) revert NotSponsorOfSubscription();
-        if (
-            block.timestamp >= subscription.lastPayment + subscription.cooldown
-                && block.timestamp < subscription.lastPayment + subscription.cooldown + subscription.auctionDuration
-        ) revert InFeeAuctionPeriod();
+
+        uint256 nextPaymentDue = subscription.lastPayment + subscription.cooldown;
+
+        if (block.timestamp >= nextPaymentDue && block.timestamp < nextPaymentDue + subscription.auctionDuration) {
+            revert InFeeAuctionPeriod();
+        }
 
         subscription.maxProcessingFee = _maxProcessingFee;
         subscription.processingFeeToken = _processingFeeToken;
@@ -321,21 +319,9 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         emit MaxProcessingFeeUpdated(_subscriptionIndex, _maxProcessingFee, _processingFeeToken);
     }
 
-    function updateAuctionDuration(uint256 _subscriptionIndex, uint256 _auctionDuration) public override {
-        Subscription storage subscription = subscriptions[_subscriptionIndex];
-        if (subscription.recipient != msg.sender) revert NotRecipientOfSubscription();
-        if (
-            block.timestamp >= subscription.lastPayment + subscription.cooldown
-                && block.timestamp < subscription.lastPayment + subscription.cooldown + subscription.auctionDuration
-        ) revert InFeeAuctionPeriod();
-        if (_auctionDuration > subscription.cooldown) revert AuctionDurationGreaterThanCooldown();
-
-        subscription.auctionDuration = _auctionDuration;
-        emit AuctionDurationUpdated(_subscriptionIndex, _auctionDuration);
-    }
-
-    function getNumberOfSubscriptions() public view override returns (uint256) {
-        return subscriptions.length;
+    function getNumberOfSubscriptions() public view override returns (uint256 numberOfSubscriptions) {
+        numberOfSubscriptions = subscriptions.length;
+        return numberOfSubscriptions;
     }
 
     function invalidateUnorderedNonces(uint256 wordPos, uint256 mask) external {

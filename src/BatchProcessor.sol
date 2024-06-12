@@ -13,8 +13,6 @@ contract BatchProcessor is IBatchProcessor {
         sub2 = _sub2;
     }
 
-    event FailedExecution(uint256 subscriptionIndex, bytes revertData);
-
     function processBatch(uint256[] calldata _subscriptionIndices, address _feeRecipient)
         public
         override

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 interface ISub2 {
     /// @dev Requires that the msg.sender has approved the contract for the amount of tokens.
-    /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This can cause unexpected reverts if the same index is used at the same time. type(uint256).max can be used to always ensure a new subscription slot is created.
+    /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This will revert if there is already a subscription at the index. type(uint256).max can be used to always ensure a new subscription slot is created.
     /// @param _recipient Recipient of the subscription.
     /// @param _amount Amount of tokens that the recipient will receive.
     /// @param _token Address of ERC20 token that will be used for the subscription.
@@ -12,7 +12,7 @@ interface ISub2 {
     /// @param _processingFeeToken Address of ERC20 token that will be used for processing fee.
     /// @param _auctionDuration The duration of the auction period in seconds.
     /// @param _delay Amount of time in seconds that must pass before the first payment.
-    /// @param _terms The number of terms to pay initially.
+    /// @param _initialTerms The number of terms to pay initially.
     /// @param _index The index of the subscription created in Subscriptions.
     /// @return subscriptionIndex The index of the subscription created in Subscriptions.
     function createSubscription(
@@ -24,10 +24,17 @@ interface ISub2 {
         address _processingFeeToken,
         uint256 _auctionDuration,
         uint256 _delay,
-        uint256 _terms,
+        uint256 _initialTerms,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
+    /// @dev Requires that the msg.sender has approved the contract for the amount of tokens.
+    /// @dev If _index is smaller than the length of Subscriptions, the function will update the subscription at that index if it has been canceled. Otherwise it will revert. This will revert if there is already a subscription at the index. type(uint256).max can be used to always ensure a new subscription slot is created.
+    /// @param _permit The permit that will be used to create the subscription.
+    /// @param _sponsor The address of the sponsor.
+    /// @param _signature The EIP-712 signature of the permit signed by the sponsor.
+    /// @param _index The index of the subscription created in Subscriptions.
+    /// @return subscriptionIndex The index of the subscription created in Subscriptions.
     function createSubscriptionWithSponsor(
         SponsorPermit calldata _permit,
         address _sponsor,
@@ -35,7 +42,7 @@ interface ISub2 {
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
-    /// @notice Can be called by both the sender and the recipient.
+    /// @notice Can only be called by either the sender or the recipient.
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to cancel.
     function cancelSubscription(uint256 _subscriptionIndex) external;
 
@@ -55,23 +62,19 @@ interface ISub2 {
         external
         returns (uint256 processingFee, address processingFeeToken);
 
-    /// @notice Can only be called by the owner of the subscription.
+    /// @notice Can only be called by the sponsor of the subscription.
     /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to update.
     /// @param _maxProcessingFee The new maximum fee to be claimed by a processor.
     /// @param _processingFeeToken The new token to be used for the tip.
     function updateMaxProcessingFee(uint256 _subscriptionIndex, uint256 _maxProcessingFee, address _processingFeeToken)
         external;
 
-    /// @notice Can only be called by the recipient of the subscription.
-    /// @param _subscriptionIndex The index in the Subscriptions array of the subscription to update.
-    /// @param _auctionDuration The new auction duration of the subscription.
-    function updateAuctionDuration(uint256 _subscriptionIndex, uint256 _auctionDuration) external;
+    /// @return numberOfSubscriptions The length of Subscriptions array.
+    function getNumberOfSubscriptions() external view returns (uint256 numberOfSubscriptions);
 
-    function getNumberOfSubscriptions() external view returns (uint256);
-
-    event SuccessfulPayment(
-        address indexed from,
-        address indexed to,
+    event Payment(
+        address indexed sender,
+        address indexed recipient,
         uint256 indexed subscriptionIndex,
         address sponsor,
         uint256 amount,
@@ -90,20 +93,11 @@ interface ISub2 {
     /// @notice Thrown when there has not been enough time past since the last payment
     error NotEnoughTimePast();
 
-    /// @notice Thrown when the caller is not the owner of the subscription
-    error NotOwnerOfSubscription();
-
     /// @notice Thrown when the caller is not the sponsor of the subscription
     error NotSponsorOfSubscription();
 
-    /// @notice Thrown when the caller is not the recipient of the subscription
-    error NotRecipientOfSubscription();
-
     /// @notice Thrown when the authSignature is not valid
     error InvalidAuthSignature();
-
-    /// @notice Thrown when trying to look up a subscription that does not exist
-    error SubscriptionDoesNotExist();
 
     /// @notice Thrown when trying to look interact with a subscription that has been canceled
     error SubscriptionIsCanceled();
@@ -125,6 +119,9 @@ interface ISub2 {
 
     /// @notice Thrown auction time has passed
     error AuctionExpired();
+
+    /// @notice Thrown when maximum processing fee is exceeded
+    error ExceedingMaxProcessingFee();
 
     /// @notice Emits an event when the owner successfully invalidates an unordered nonce.
     event UnorderedNonceInvalidation(address indexed owner, uint256 word, uint256 mask);
@@ -148,17 +145,14 @@ interface ISub2 {
     }
 
     struct SponsorPermit {
-        // a unique value for every token owner's signature to prevent signature replays
         uint256 nonce;
-        // deadline on the permit signature
         uint256 deadline;
-        // Subscription specification
         address recipient;
         uint256 amount;
         address token;
         uint256 cooldown;
         uint256 delay;
-        uint256 terms;
+        uint256 initialTerms;
         uint256 maxProcessingFee;
         address processingFeeToken;
         uint256 auctionDuration;

@@ -35,6 +35,7 @@ contract Querier is IQuerier {
                 address processingFeeToken,
                 uint256 auctionDuration
             ) = sub2.subscriptions(index);
+            if (sender != _sender) continue;
             ISub2.Subscription memory subscription = ISub2.Subscription({
                 sender: sender,
                 recipient: recipient,
@@ -77,6 +78,7 @@ contract Querier is IQuerier {
                 address processingFeeToken,
                 uint256 auctionDuration
             ) = sub2.subscriptions(index);
+            if (recipient != _recipient) continue;
             ISub2.Subscription memory subscription = ISub2.Subscription({
                 sender: sender,
                 recipient: recipient,
@@ -95,7 +97,7 @@ contract Querier is IQuerier {
         return recipientSubscriptions;
     }
 
-    function readSubscriptions(uint256[] calldata _subscriptionIndices)
+    function getSubscriptions(uint256[] calldata _subscriptionIndices)
         public
         view
         override

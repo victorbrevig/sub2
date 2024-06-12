@@ -111,7 +111,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             token: address(token0),
             cooldown: defaultCooldown,
             delay: 0,
-            terms: 1,
+            initialTerms: 1,
             maxProcessingFee: defaultProcessingFee,
             processingFeeToken: defaultProcessingFeeToken,
             auctionDuration: defaultAuctionTime
@@ -141,7 +141,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             token: address(token0),
             cooldown: defaultCooldown,
             delay: 0,
-            terms: 1,
+            initialTerms: 1,
             maxProcessingFee: defaultProcessingFee,
             processingFeeToken: defaultProcessingFeeToken,
             auctionDuration: defaultAuctionTime
@@ -157,7 +157,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             token: address(token0),
             cooldown: defaultCooldown,
             delay: 0,
-            terms: 1,
+            initialTerms: 1,
             maxProcessingFee: defaultProcessingFee,
             processingFeeToken: defaultProcessingFeeToken,
             auctionDuration: defaultAuctionTime
@@ -205,7 +205,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         assertEq(token0.balanceOf(processor), processingFee, "processor balance");
     }
 
-    function test_CollectPaymentBeforeCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
+    function test_ProcessPaymentBeforeCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
         // cooldownTime has to be <= blockTime when created
         blockTime = bound(blockTime, defaultAuctionTime, type(uint256).max / 2);
         cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime);
@@ -230,7 +230,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.processPayment(0, processor);
     }
 
-    function test_CollectPaymentBeforeCooldownPassed2(uint256 cooldownTime, uint256 blockTime) public {
+    function test_ProcessPaymentBeforeCooldownPassed2(uint256 cooldownTime, uint256 blockTime) public {
         blockTime = bound(blockTime, defaultAuctionTime * 2, type(uint256).max / 2);
         cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime / 2);
 
@@ -259,11 +259,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.processPayment(0, processor);
     }
 
-    function test_CollectPaymentAfterCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
+    function test_ProcessPaymentAfterCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
         blockTime = bound(blockTime, defaultAuctionTime, type(uint256).max / 2 - defaultAuctionTime);
         cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime);
-
-        // subscription.lastPayment + subscription.cooldown + subscription.auctionTime
 
         vm.prank(from);
         vm.warp(blockTime);
@@ -285,7 +283,31 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.processPayment(0, processor);
     }
 
-    function testFail_RedeemingNonExistentSubscription() public {
+    function test_ProcessPaymentTimesAreCorrect() public {
+        vm.prank(from);
+        vm.warp(1641070800);
+        sub2.createSubscription(
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
+            defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
+            defaultIndex
+        );
+
+        vm.prank(processor);
+        vm.warp(1641070800 + defaultCooldown + 10);
+        sub2.processPayment(0, processor);
+
+        (,,,,,, uint256 lastPayment,,,) = sub2.subscriptions(0);
+        assertEq(lastPayment, 1641070800 + defaultCooldown, "lastPayment incorrect");
+    }
+
+    function testFail_ProcessNonExistentSubscription() public {
         vm.prank(processor);
         sub2.processPayment(0, processor);
     }
@@ -307,7 +329,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         );
 
         vm.prank(from);
+        snapStart("cancelSubscription");
         sub2.cancelSubscription(0);
+        snapEnd();
     }
 
     function test_CancelSubscriptionRecipient() public {
@@ -354,7 +378,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.cancelSubscription(0);
     }
 
-    function test_RedeemingCanceledSubscription() public {
+    function test_ProcessCanceledSubscription() public {
         vm.prank(from);
         vm.warp(1641070800);
         sub2.createSubscription(
@@ -378,7 +402,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.processPayment(0, processor);
     }
 
-    function test_RedeemingExpiredSubscription() public {
+    function test_ProcessExpiredSubscription() public {
         vm.prank(from);
         vm.warp(1641070800);
         sub2.createSubscription(
@@ -462,7 +486,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         assertEq(toBalanceDifferenceFirst, toBalanceDifferenceSecond, "to balance differences differ");
     }
 
-    function test_MaxFeeCeilingUponRedeeming(uint256 waitTime, uint256 blockTime) public {
+    function test_MaxFeeCeilingUponProcessing(uint256 waitTime, uint256 blockTime) public {
         waitTime = bound(waitTime, 0, defaultAuctionTime);
         blockTime = bound(blockTime, defaultCooldown, type(uint256).max - defaultAuctionTime - defaultCooldown);
 
@@ -623,7 +647,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             token: address(token0),
             cooldown: defaultCooldown,
             delay: 0,
-            terms: 1,
+            initialTerms: 1,
             maxProcessingFee: defaultProcessingFee,
             processingFeeToken: defaultProcessingFeeToken,
             auctionDuration: defaultAuctionTime
@@ -634,5 +658,27 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.prank(from);
         vm.warp(1641070800);
         sub2.createSubscriptionWithSponsor(sponsorPermit, sponsor, sig, UINT256_MAX);
+    }
+
+    function test_UpdateMaxProcessingFee() public {
+        vm.prank(from);
+        vm.warp(1641070800);
+        uint256 subIndex = sub2.createSubscription(
+            recipient,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
+            defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
+            defaultIndex
+        );
+
+        vm.prank(from);
+        snapStart("updateMaxProcessingFee");
+        sub2.updateMaxProcessingFee(subIndex, defaultProcessingFee * 2, address(token1));
+        snapEnd();
     }
 }
