@@ -33,8 +33,7 @@ contract Querier is IQuerier {
                 uint256 lastPayment,
                 uint256 maxProcessingFee,
                 address processingFeeToken,
-                uint256 auctionDuration,
-                uint256 totalPayments
+                uint256 auctionDuration
             ) = sub2.subscriptions(index);
             if (sender != _sender) continue;
             ISub2.Subscription memory subscription = ISub2.Subscription({
@@ -47,8 +46,7 @@ contract Querier is IQuerier {
                 lastPayment: lastPayment,
                 maxProcessingFee: maxProcessingFee,
                 processingFeeToken: processingFeeToken,
-                auctionDuration: auctionDuration,
-                totalPayments: totalPayments
+                auctionDuration: auctionDuration
             });
 
             userSubscriptions[i] = ISub2.IndexedSubscription({index: index, subscription: subscription});
@@ -78,8 +76,7 @@ contract Querier is IQuerier {
                 uint256 lastPayment,
                 uint256 maxProcessingFee,
                 address processingFeeToken,
-                uint256 auctionDuration,
-                uint256 totalPayments
+                uint256 auctionDuration
             ) = sub2.subscriptions(index);
             if (recipient != _recipient) continue;
             ISub2.Subscription memory subscription = ISub2.Subscription({
@@ -92,8 +89,7 @@ contract Querier is IQuerier {
                 lastPayment: lastPayment,
                 maxProcessingFee: maxProcessingFee,
                 processingFeeToken: processingFeeToken,
-                auctionDuration: auctionDuration,
-                totalPayments: totalPayments
+                auctionDuration: auctionDuration
             });
             recipientSubscriptions[i] = ISub2.IndexedSubscription({index: index, subscription: subscription});
         }
@@ -119,8 +115,7 @@ contract Querier is IQuerier {
                 uint256 lastPayment,
                 uint256 maxProcessingFee,
                 address processingFeeToken,
-                uint256 auctionDuration,
-                uint256 totalPayments
+                uint256 auctionDuration
             ) = sub2.subscriptions(_subscriptionIndices[i]);
             subscriptions[i] = ISub2.Subscription({
                 sender: sender,
@@ -132,8 +127,7 @@ contract Querier is IQuerier {
                 lastPayment: lastPayment,
                 maxProcessingFee: maxProcessingFee,
                 processingFeeToken: processingFeeToken,
-                auctionDuration: auctionDuration,
-                totalPayments: totalPayments
+                auctionDuration: auctionDuration
             });
         }
         return subscriptions;

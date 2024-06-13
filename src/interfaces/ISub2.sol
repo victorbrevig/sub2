@@ -137,7 +137,6 @@ interface ISub2 {
         uint256 maxProcessingFee;
         address processingFeeToken;
         uint256 auctionDuration;
-        uint256 totalPayments;
     }
 
     struct IndexedSubscription {

@@ -303,7 +303,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.warp(1641070800 + defaultCooldown + 10);
         sub2.processPayment(0, processor);
 
-        (,,,,,, uint256 lastPayment,,,,) = sub2.subscriptions(0);
+        (,,,,,, uint256 lastPayment,,,) = sub2.subscriptions(0);
         assertEq(lastPayment, 1641070800 + defaultCooldown, "lastPayment incorrect");
     }
 
@@ -540,7 +540,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultIndex
         );
 
-        (address sender,,,,,,,,,,) = sub2.subscriptions(0);
+        (address sender,,,,,,,,,) = sub2.subscriptions(0);
         assertEq(sender, from);
         assertEq(token0.balanceOf(from), startBalanceFrom);
         assertEq(token0.balanceOf(recipient), startBalanceTo);
@@ -581,7 +581,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         );
         snapEnd();
 
-        (address sender,,,,,,,,,,) = sub2.subscriptions(subIndex);
+        (address sender,,,,,,,,,) = sub2.subscriptions(subIndex);
         assertEq(sender, address2);
     }
 

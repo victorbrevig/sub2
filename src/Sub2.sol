@@ -124,7 +124,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _cooldown * _initialPayments,
                 _auctionDuration,
                 _sponsor,
-                _initialPayments,
                 _index
             );
             // initial payment
@@ -161,7 +160,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _delay,
                 _auctionDuration,
                 _sponsor,
-                0,
                 _index
             );
         }
@@ -179,7 +177,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _delay,
         uint256 _auctionDuration,
         address _sponsor,
-        uint256 _totalPayments,
         uint256 _index
     ) private returns (uint256 subscriptionIndex) {
         subscriptionIndex = subscriptions.length;
@@ -199,8 +196,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 lastPayment: block.timestamp - _cooldown + _delay,
                 maxProcessingFee: _maxProcessingFee,
                 processingFeeToken: _processingFeeToken,
-                auctionDuration: _auctionDuration,
-                totalPayments: _totalPayments
+                auctionDuration: _auctionDuration
             });
             subscriptionIndex = _index;
             subscriptions[subscriptionIndex] = newSubscription;
@@ -216,8 +212,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                     block.timestamp - _cooldown + _delay,
                     _maxProcessingFee,
                     _processingFeeToken,
-                    _auctionDuration,
-                    _totalPayments
+                    _auctionDuration
                 )
             );
         }
