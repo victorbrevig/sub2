@@ -9,6 +9,7 @@ import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 import {EIP712} from "./EIP712.sol";
 import {SignatureVerification} from "./libraries/SignatureVerification.sol";
 import {SponsorPermitHash} from "./libraries/SponsorPermitHash.sol";
+import {SubscriptionHash} from "./libraries/SubscriptionHash.sol";
 import {
     SignatureExpired,
     InvalidNonce,
@@ -27,6 +28,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
     using SignatureVerification for bytes;
     using SafeTransferLib for ERC20;
     using SponsorPermitHash for SponsorPermit;
+    using SubscriptionHash for Subscription;
 
     Subscription[] public subscriptions;
 
@@ -36,6 +38,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
 
     mapping(address => mapping(uint32 => uint256)) public recipientToSubscriptionIndex;
     mapping(address => uint32) public recipientSubscriptionNonce;
+
+    mapping(bytes32 => uint256) public numberOfPayedSubscriptions;
 
     mapping(address => mapping(uint256 => uint256)) public nonceBitmap;
 
@@ -124,6 +128,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _cooldown * _initialPayments,
                 _auctionDuration,
                 _sponsor,
+                _initialPayments,
                 _index
             );
             // initial payment
@@ -149,6 +154,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _processingFeeToken,
                 _initialPayments
             );
+            numberOfPayedSubscriptions[keccak256(abi.encodePacked(msg.sender, _recipient, _amount, _token, _cooldown))]++;
         } else {
             subscriptionIndex = _createSubscription(
                 _recipient,
@@ -160,6 +166,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _delay,
                 _auctionDuration,
                 _sponsor,
+                0,
                 _index
             );
         }
@@ -177,6 +184,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         uint256 _delay,
         uint256 _auctionDuration,
         address _sponsor,
+        uint256 _paymentCounter,
         uint256 _index
     ) private returns (uint256 subscriptionIndex) {
         subscriptionIndex = subscriptions.length;
@@ -196,7 +204,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 lastPayment: block.timestamp - _cooldown + _delay,
                 maxProcessingFee: _maxProcessingFee,
                 processingFeeToken: _processingFeeToken,
-                auctionDuration: _auctionDuration
+                auctionDuration: _auctionDuration,
+                paymentCounter: _paymentCounter
             });
             subscriptionIndex = _index;
             subscriptions[subscriptionIndex] = newSubscription;
@@ -212,7 +221,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                     block.timestamp - _cooldown + _delay,
                     _maxProcessingFee,
                     _processingFeeToken,
-                    _auctionDuration
+                    _auctionDuration,
+                    _paymentCounter
                 )
             );
         }
@@ -231,6 +241,19 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         // test if storage or memory is cheaper
         Subscription memory subscription = subscriptions[_subscriptionIndex];
         if (subscription.sender != msg.sender && subscription.recipient != msg.sender) revert NotSenderOrRecipient();
+
+        if (subscription.paymentCounter > 0) {
+            numberOfPayedSubscriptions[keccak256(
+                abi.encodePacked(
+                    subscription.sender,
+                    subscription.recipient,
+                    subscription.amount,
+                    subscription.token,
+                    subscription.cooldown
+                )
+            )]++;
+        }
+
         delete subscriptions[_subscriptionIndex];
         emit SubscriptionCanceled(_subscriptionIndex, subscription.recipient);
     }
@@ -296,6 +319,19 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             subscription.processingFeeToken,
             1
         );
+
+        if (subscription.paymentCounter == 0) {
+            numberOfPayedSubscriptions[keccak256(
+                abi.encodePacked(
+                    subscription.sender,
+                    subscription.recipient,
+                    subscription.amount,
+                    subscription.token,
+                    subscription.cooldown
+                )
+            )]++;
+        }
+        subscription.paymentCounter++;
 
         return (processingFee, subscription.processingFeeToken);
     }

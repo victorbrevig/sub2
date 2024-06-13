@@ -94,6 +94,13 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         uint256 treasuryFee = sub2.calculateFee(defaultAmount, sub2.treasuryFeeBasisPoints());
 
+        snapStart("get payedSubs");
+        uint256 payedSubs = sub2.numberOfPayedSubscriptions(
+            keccak256(abi.encodePacked(from, recipient, defaultAmount, address(token0), defaultCooldown))
+        );
+        snapEnd();
+
+        assertEq(payedSubs, 1, "payed subs wrong");
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
         assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount - treasuryFee);
         assertEq(token0.balanceOf(treasury), treasuryFee);
@@ -185,7 +192,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultProcessingFee,
             defaultProcessingFeeToken,
             defaultAuctionTime,
-            defaultDelay,
+            0,
             defaultTerms,
             defaultIndex
         );
@@ -199,6 +206,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         (uint256 processingFee,) = sub2.processPayment(0, processor);
         snapEnd();
 
+        (,,,,,,,,,, uint256 paymentCounter) = sub2.subscriptions(0);
+
+        assertEq(paymentCounter, 2, "payment counter incorrect");
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount * 2 - processingFee, "from balance");
         assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount * 2 - treasuryFee * 2, "to balance");
         assertEq(token0.balanceOf(treasury), treasuryFee * 2, "treasury balance");
@@ -303,7 +313,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         vm.warp(1641070800 + defaultCooldown + 10);
         sub2.processPayment(0, processor);
 
-        (,,,,,, uint256 lastPayment,,,) = sub2.subscriptions(0);
+        (,,,,,, uint256 lastPayment,,,,) = sub2.subscriptions(0);
         assertEq(lastPayment, 1641070800 + defaultCooldown, "lastPayment incorrect");
     }
 
@@ -323,7 +333,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultProcessingFee,
             defaultProcessingFeeToken,
             defaultAuctionTime,
-            defaultDelay,
+            0,
             defaultTerms,
             defaultIndex
         );
@@ -540,7 +550,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
             defaultIndex
         );
 
-        (address sender,,,,,,,,,) = sub2.subscriptions(0);
+        (address sender,,,,,,,,,,) = sub2.subscriptions(0);
         assertEq(sender, from);
         assertEq(token0.balanceOf(from), startBalanceFrom);
         assertEq(token0.balanceOf(recipient), startBalanceTo);
@@ -581,7 +591,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         );
         snapEnd();
 
-        (address sender,,,,,,,,,) = sub2.subscriptions(subIndex);
+        (address sender,,,,,,,,,,) = sub2.subscriptions(subIndex);
         assertEq(sender, address2);
     }
 
