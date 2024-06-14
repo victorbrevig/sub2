@@ -9,7 +9,6 @@ import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 import {EIP712} from "./EIP712.sol";
 import {SignatureVerification} from "./libraries/SignatureVerification.sol";
 import {SponsorPermitHash} from "./libraries/SponsorPermitHash.sol";
-import {SubscriptionHash} from "./libraries/SubscriptionHash.sol";
 import {
     SignatureExpired,
     InvalidNonce,
@@ -28,7 +27,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
     using SignatureVerification for bytes;
     using SafeTransferLib for ERC20;
     using SponsorPermitHash for SponsorPermit;
-    using SubscriptionHash for Subscription;
 
     Subscription[] public subscriptions;
 
@@ -39,7 +37,8 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
     mapping(address => mapping(uint32 => uint256)) public recipientToSubscriptionIndex;
     mapping(address => uint32) public recipientSubscriptionNonce;
 
-    mapping(bytes32 => uint256) public numberOfPayedSubscriptions;
+    mapping(bytes32 => mapping(uint32 => uint256)) public subscriptionHashToSubscriptionIndex;
+    mapping(bytes32 => uint32) public subscriptionHashToNonce;
 
     mapping(address => mapping(uint256 => uint256)) public nonceBitmap;
 
@@ -154,7 +153,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 _processingFeeToken,
                 _initialPayments
             );
-            numberOfPayedSubscriptions[keccak256(abi.encodePacked(msg.sender, _recipient, _amount, _token, _cooldown))]++;
         } else {
             subscriptionIndex = _createSubscription(
                 _recipient,
@@ -232,6 +230,11 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         recipientToSubscriptionIndex[_recipient][recipientSubscriptionNonce[_recipient]] = subscriptionIndex;
         recipientSubscriptionNonce[_recipient]++;
 
+        bytes32 subscriptionHash = keccak256(abi.encodePacked(msg.sender, _recipient, _token, _cooldown));
+        subscriptionHashToSubscriptionIndex[subscriptionHash][subscriptionHashToNonce[subscriptionHash]] =
+            subscriptionIndex;
+        subscriptionHashToNonce[subscriptionHash]++;
+
         emit SubscriptionCreated(subscriptionIndex, _recipient);
 
         return subscriptionIndex;
@@ -241,18 +244,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         // test if storage or memory is cheaper
         Subscription memory subscription = subscriptions[_subscriptionIndex];
         if (subscription.sender != msg.sender && subscription.recipient != msg.sender) revert NotSenderOrRecipient();
-
-        if (subscription.paymentCounter > 0) {
-            numberOfPayedSubscriptions[keccak256(
-                abi.encodePacked(
-                    subscription.sender,
-                    subscription.recipient,
-                    subscription.amount,
-                    subscription.token,
-                    subscription.cooldown
-                )
-            )]++;
-        }
 
         delete subscriptions[_subscriptionIndex];
         emit SubscriptionCanceled(_subscriptionIndex, subscription.recipient);
@@ -320,17 +311,6 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
             1
         );
 
-        if (subscription.paymentCounter == 0) {
-            numberOfPayedSubscriptions[keccak256(
-                abi.encodePacked(
-                    subscription.sender,
-                    subscription.recipient,
-                    subscription.amount,
-                    subscription.token,
-                    subscription.cooldown
-                )
-            )]++;
-        }
         subscription.paymentCounter++;
 
         return (processingFee, subscription.processingFeeToken);
