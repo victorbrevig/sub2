@@ -42,11 +42,11 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
     uint256 defaultProcessingFee = 10 * 1e5;
 
-    uint256 defaultCooldown = 1800;
-    uint256 defaultAuctionTime = 1800;
+    uint32 defaultCooldown = 1800;
+    uint32 defaultAuctionTime = 1800;
 
-    uint256 defaultDelay = 0;
-    uint256 defaultTerms = 1;
+    uint32 defaultDelay = 0;
+    uint16 defaultTerms = 1;
 
     address defaultProcessingFeeToken;
 
@@ -68,6 +68,10 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         setERC20TestTokens(from);
         setERC20TestTokenApprovals(vm, from, address(sub2));
         setERC20TestTokenApprovals(vm, from, address(sub2_2));
+    }
+
+    function min(uint256 a, uint256 b) public pure returns (uint256) {
+        return a < b ? a : b;
     }
 
     // tests that funds are correctly transferred from the owner to the recipient upon payment for initial payment
@@ -100,7 +104,7 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         bool hasPayedSub = false;
         for (uint32 i = 0; i < nonce; ++i) {
             uint256 subIndex = sub2.subscriptionHashToSubscriptionIndex(subscriptionHash, i);
-            (,,, uint256 amount,,,,,,, uint256 paymentCounter) = sub2.subscriptions(subIndex);
+            (,, uint256 amount,,,,,,,, uint16 paymentCounter) = sub2.subscriptions(subIndex);
             if (amount == defaultAmount && paymentCounter == 1) {
                 hasPayedSub = true;
                 break;
@@ -223,10 +227,10 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         assertEq(token0.balanceOf(processor), processingFee, "processor balance");
     }
 
-    function test_ProcessPaymentBeforeCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
+    function test_ProcessPaymentBeforeCooldownPassed(uint32 cooldownTime, uint40 blockTime) public {
         // cooldownTime has to be <= blockTime when created
-        blockTime = bound(blockTime, defaultAuctionTime, type(uint256).max / 2);
-        cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime);
+        blockTime = uint40(bound(blockTime, defaultAuctionTime, type(uint40).max / 2));
+        cooldownTime = uint32(bound(cooldownTime, defaultAuctionTime, blockTime));
         vm.warp(blockTime);
         vm.prank(from);
         sub2.createSubscription(
@@ -248,10 +252,10 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.processPayment(0, processor);
     }
 
-    function test_ProcessPaymentBeforeCooldownPassed2(uint256 cooldownTime, uint256 blockTime) public {
-        blockTime = bound(blockTime, defaultAuctionTime * 2, type(uint256).max / 2);
-        cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime / 2);
-
+    function test_ProcessPaymentBeforeCooldownPassed2(uint32 cooldownTime, uint40 blockTime) public {
+        blockTime = uint40(bound(blockTime, defaultAuctionTime * 2, type(uint40).max / 2));
+        cooldownTime = uint32(bound(cooldownTime, defaultAuctionTime, uint32(min(blockTime, type(uint32).max / 2))));
+        // uint40(block.timestamp - _cooldown + _delay)
         vm.warp(blockTime);
         vm.prank(from);
         sub2.createSubscription(
@@ -277,9 +281,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.processPayment(0, processor);
     }
 
-    function test_ProcessPaymentAfterCooldownPassed(uint256 cooldownTime, uint256 blockTime) public {
-        blockTime = bound(blockTime, defaultAuctionTime, type(uint256).max / 2 - defaultAuctionTime);
-        cooldownTime = bound(cooldownTime, defaultAuctionTime, blockTime);
+    function test_ProcessPaymentAfterCooldownPassed(uint32 cooldownTime, uint40 blockTime) public {
+        blockTime = uint40(bound(blockTime, defaultAuctionTime, type(uint40).max / 2 - defaultAuctionTime));
+        cooldownTime = uint32(bound(cooldownTime, defaultAuctionTime, blockTime));
 
         vm.prank(from);
         vm.warp(blockTime);
@@ -463,9 +467,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         sub2.processPayment(0, processor);
     }
 
-    function test_ProcessingFeeChangeSameOutputAmount(uint256 oldFee, uint256 newFee, uint256 blockTime) public {
+    function test_ProcessingFeeChangeSameOutputAmount(uint256 oldFee, uint256 newFee, uint40 blockTime) public {
         uint256 startBalanceFrom = token0.balanceOf(from);
-        blockTime = bound(blockTime, defaultCooldown, type(uint256).max - defaultAuctionTime - defaultCooldown);
+        blockTime = uint40(bound(blockTime, defaultCooldown, type(uint40).max - defaultAuctionTime - defaultCooldown));
         vm.assume(oldFee < startBalanceFrom / 4);
         vm.assume(newFee < startBalanceFrom / 4);
 
@@ -504,9 +508,9 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
         assertEq(toBalanceDifferenceFirst, toBalanceDifferenceSecond, "to balance differences differ");
     }
 
-    function test_MaxFeeCeilingUponProcessing(uint256 waitTime, uint256 blockTime) public {
-        waitTime = bound(waitTime, 0, defaultAuctionTime);
-        blockTime = bound(blockTime, defaultCooldown, type(uint256).max - defaultAuctionTime - defaultCooldown);
+    function test_MaxFeeCeilingUponProcessing(uint32 waitTime, uint40 blockTime) public {
+        waitTime = uint32(bound(waitTime, 0, defaultAuctionTime));
+        blockTime = uint40(bound(blockTime, defaultCooldown, type(uint40).max - defaultAuctionTime - defaultCooldown));
 
         uint256 treasuryFee = sub2.calculateFee(defaultAmount, sub2.treasuryFeeBasisPoints());
 

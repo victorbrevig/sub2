@@ -19,12 +19,12 @@ interface ISub2 {
         address _recipient,
         uint256 _amount,
         address _token,
-        uint256 _cooldown,
+        uint32 _cooldown,
         uint256 _maxProcessingFee,
         address _processingFeeToken,
-        uint256 _auctionDuration,
-        uint256 _delay,
-        uint256 _initialPayments,
+        uint32 _auctionDuration,
+        uint32 _delay,
+        uint16 _initialPayments,
         uint256 _index
     ) external returns (uint256 subscriptionIndex);
 
@@ -129,15 +129,15 @@ interface ISub2 {
     struct Subscription {
         address sender;
         address recipient;
-        address sponsor;
         uint256 amount;
         address token;
-        uint256 cooldown;
-        uint256 lastPayment;
         uint256 maxProcessingFee;
         address processingFeeToken;
-        uint256 auctionDuration;
-        uint256 paymentCounter;
+        uint40 lastPayment;
+        address sponsor;
+        uint32 cooldown;
+        uint32 auctionDuration;
+        uint16 paymentCounter;
     }
 
     struct IndexedSubscription {
@@ -151,11 +151,11 @@ interface ISub2 {
         address recipient;
         uint256 amount;
         address token;
-        uint256 cooldown;
-        uint256 delay;
-        uint256 initialPayments;
+        uint32 cooldown;
+        uint32 delay;
+        uint32 auctionDuration;
+        uint16 initialPayments;
         uint256 maxProcessingFee;
         address processingFeeToken;
-        uint256 auctionDuration;
     }
 }

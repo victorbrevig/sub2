@@ -50,12 +50,12 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         address _recipient,
         uint256 _amount,
         address _token,
-        uint256 _cooldown,
+        uint32 _cooldown,
         uint256 _maxProcessingFee,
         address _processingFeeToken,
-        uint256 _auctionDuration,
-        uint256 _delay,
-        uint256 _initialPayments,
+        uint32 _auctionDuration,
+        uint32 _delay,
+        uint16 _initialPayments,
         uint256 _index
     ) public override returns (uint256 subscriptionIndex) {
         subscriptionIndex = _createCreateSubscription(
@@ -107,12 +107,12 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         address _recipient,
         uint256 _amount,
         address _token,
-        uint256 _cooldown,
+        uint32 _cooldown,
         uint256 _maxProcessingFee,
         address _processingFeeToken,
-        uint256 _delay,
-        uint256 _initialPayments,
-        uint256 _auctionDuration,
+        uint32 _delay,
+        uint16 _initialPayments,
+        uint32 _auctionDuration,
         address _sponsor,
         uint256 _index
     ) private returns (uint256 subscriptionIndex) {
@@ -176,13 +176,13 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
         address _recipient,
         uint256 _amount,
         address _token,
-        uint256 _cooldown,
+        uint32 _cooldown,
         uint256 _maxProcessingFee,
         address _processingFeeToken,
-        uint256 _delay,
-        uint256 _auctionDuration,
+        uint32 _delay,
+        uint32 _auctionDuration,
         address _sponsor,
-        uint256 _paymentCounter,
+        uint16 _paymentCounter,
         uint256 _index
     ) private returns (uint256 subscriptionIndex) {
         subscriptionIndex = subscriptions.length;
@@ -199,7 +199,7 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 amount: _amount,
                 token: _token,
                 cooldown: _cooldown,
-                lastPayment: block.timestamp - _cooldown + _delay,
+                lastPayment: uint40(block.timestamp - _cooldown + _delay),
                 maxProcessingFee: _maxProcessingFee,
                 processingFeeToken: _processingFeeToken,
                 auctionDuration: _auctionDuration,
@@ -212,13 +212,13 @@ contract Sub2 is ISub2, EIP712, FeeManager, ReentrancyGuard {
                 Subscription(
                     msg.sender,
                     _recipient,
-                    _sponsor,
                     _amount,
                     _token,
-                    _cooldown,
-                    block.timestamp - _cooldown + _delay,
                     _maxProcessingFee,
                     _processingFeeToken,
+                    uint40(block.timestamp - _cooldown + _delay),
+                    _sponsor,
+                    _cooldown,
                     _auctionDuration,
                     _paymentCounter
                 )

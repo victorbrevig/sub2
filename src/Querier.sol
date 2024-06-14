@@ -26,15 +26,15 @@ contract Querier is IQuerier {
             (
                 address sender,
                 address recipient,
-                address sponsor,
                 uint256 amount,
                 address token,
-                uint256 cooldown,
-                uint256 lastPayment,
                 uint256 maxProcessingFee,
                 address processingFeeToken,
-                uint256 auctionDuration,
-                uint256 paymentCounter
+                uint40 lastPayment,
+                address sponsor,
+                uint32 cooldown,
+                uint32 auctionDuration,
+                uint16 paymentCounter
             ) = sub2.subscriptions(index);
             if (sender != _sender) continue;
             ISub2.Subscription memory subscription = ISub2.Subscription({
@@ -71,15 +71,15 @@ contract Querier is IQuerier {
             (
                 address sender,
                 address recipient,
-                address sponsor,
                 uint256 amount,
                 address token,
-                uint256 cooldown,
-                uint256 lastPayment,
                 uint256 maxProcessingFee,
                 address processingFeeToken,
-                uint256 auctionDuration,
-                uint256 paymentCounter
+                uint40 lastPayment,
+                address sponsor,
+                uint32 cooldown,
+                uint32 auctionDuration,
+                uint16 paymentCounter
             ) = sub2.subscriptions(index);
             if (recipient != _recipient) continue;
             ISub2.Subscription memory subscription = ISub2.Subscription({
@@ -112,15 +112,15 @@ contract Querier is IQuerier {
             (
                 address sender,
                 address recipient,
-                address sponsor,
                 uint256 amount,
                 address token,
-                uint256 cooldown,
-                uint256 lastPayment,
                 uint256 maxProcessingFee,
                 address processingFeeToken,
-                uint256 auctionDuration,
-                uint256 paymentCounter
+                uint40 lastPayment,
+                address sponsor,
+                uint32 cooldown,
+                uint32 auctionDuration,
+                uint16 paymentCounter
             ) = sub2.subscriptions(_subscriptionIndices[i]);
             subscriptions[i] = ISub2.Subscription({
                 sender: sender,

@@ -42,11 +42,11 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
 
     uint256 defaultProcessingFee = 10 * 1e5;
 
-    uint256 defaultCooldown = 1800;
-    uint256 defaultAuctionTime = 1800;
+    uint32 defaultCooldown = 1800;
+    uint32 defaultAuctionTime = 1800;
 
-    uint256 defaultDelay = 0;
-    uint256 defaultTerms = 1;
+    uint32 defaultDelay = 0;
+    uint16 defaultTerms = 1;
 
     address defaultProcessingFeeToken;
 
