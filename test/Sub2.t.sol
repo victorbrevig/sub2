@@ -98,21 +98,6 @@ contract Sub2Test is Test, PermitSignature, TokenProvider, GasSnapshot {
 
         uint256 treasuryFee = sub2.calculateFee(defaultAmount, sub2.treasuryFeeBasisPoints());
 
-        snapStart("get payedSubs");
-        bytes32 subscriptionHash = keccak256(abi.encodePacked(from, recipient, address(token0), defaultCooldown));
-        uint32 nonce = sub2.subscriptionHashToNonce(subscriptionHash);
-        bool hasPayedSub = false;
-        for (uint32 i = 0; i < nonce; ++i) {
-            uint256 subIndex = sub2.subscriptionHashToSubscriptionIndex(subscriptionHash, i);
-            (,, uint256 amount,,,,,,,, uint16 paymentCounter) = sub2.subscriptions(subIndex);
-            if (amount == defaultAmount && paymentCounter == 1) {
-                hasPayedSub = true;
-                break;
-            }
-        }
-        snapEnd();
-
-        assertEq(hasPayedSub, true, "no payed subscription found");
         assertEq(token0.balanceOf(from), startBalanceFrom - defaultAmount);
         assertEq(token0.balanceOf(recipient), startBalanceTo + defaultAmount - treasuryFee);
         assertEq(token0.balanceOf(treasury), treasuryFee);

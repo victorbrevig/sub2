@@ -18,4 +18,20 @@ interface IQuerier {
         external
         view
         returns (ISub2.Subscription[] memory);
+
+    /// @notice Checks if the sender is a payed subscriber of the recipient with given inputs.
+    /// @dev This function runs in O(n) where n is the number of subscriptions matching the inputs not considering _minAmount.
+    /// @param _sender The sender address.
+    /// @param _recipient The recipient address.
+    /// @param _minAmount The minimum amount of the subscription to allow.
+    /// @param _token The token address of the subscription.
+    /// @param _cooldown The cooldown of the subscription.
+    /// @return isPayedSubscriber True if the sender is a payed subscriber of the recipient with given inputs.
+    function isPayedSubscriber(
+        address _sender,
+        address _recipient,
+        uint256 _minAmount,
+        address _token,
+        uint32 _cooldown
+    ) external view returns (bool);
 }

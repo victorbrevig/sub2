@@ -256,4 +256,27 @@ contract QuerierTest is Test, TokenProvider, GasSnapshot {
 
         querier.getSubscriptions(subscriptionIndices);
     }
+
+    function test_IsPayedSubscriber() public {
+        vm.warp(1641070800);
+        vm.prank(sender0);
+        erc20Subscription.createSubscription(
+            recipient0,
+            defaultAmount,
+            address(token0),
+            defaultCooldown,
+            defaultProcessingFee,
+            defaultProcessingFeeToken,
+            defaultAuctionTime,
+            defaultDelay,
+            defaultTerms,
+            defaultIndex
+        );
+
+        assertEq(
+            querier.isPayedSubscriber(sender0, recipient0, defaultAmount, address(token0), defaultCooldown),
+            true,
+            "Not payed subscriber"
+        );
+    }
 }

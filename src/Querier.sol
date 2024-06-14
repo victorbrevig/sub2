@@ -138,4 +138,25 @@ contract Querier is IQuerier {
         }
         return subscriptions;
     }
+
+    function isPayedSubscriber(
+        address _sender,
+        address _recipient,
+        uint256 _minAmount,
+        address _token,
+        uint32 _cooldown
+    ) public view returns (bool) {
+        bytes32 subscriptionHash = keccak256(abi.encodePacked(_sender, _recipient, _token, _cooldown));
+        uint32 nonce = sub2.subscriptionHashToNonce(subscriptionHash);
+        bool isSubscribed = false;
+        for (uint32 i = 0; i < nonce; ++i) {
+            uint256 subIndex = sub2.subscriptionHashToSubscriptionIndex(subscriptionHash, i);
+            (,, uint256 amount,,,,,,,, uint16 paymentCounter) = sub2.subscriptions(subIndex);
+            if (amount >= _minAmount && paymentCounter > 0) {
+                isSubscribed = true;
+                break;
+            }
+        }
+        return isSubscribed;
+    }
 }
