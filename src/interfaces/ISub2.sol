@@ -87,7 +87,6 @@ interface ISub2 {
     event SubscriptionCreated(uint256 indexed subscriptionIndex, address indexed recipient);
     event SubscriptionCanceled(uint256 indexed subscriptionIndex, address indexed recipient);
     event MaxProcessingFeeUpdated(uint256 subscriptionIndex, uint256 maxProcessingFee, address processingFeeToken);
-    event AuctionDurationUpdated(uint256 subscriptionIndex, uint256 auctionDuration);
     event SponsorshipRevoked(uint256 indexed subscriptionIndex, address indexed sender);
 
     /// @notice Thrown when there has not been enough time past since the last payment

@@ -24,7 +24,7 @@ contract BatchProcessor is IBatchProcessor {
                 uint256 processingFee, address processingFeeToken
             ) {
                 receipts[i] = Receipt({
-                    subscriptionIndex: i,
+                    subscriptionIndex: _subscriptionIndices[i],
                     processingFee: processingFee,
                     processingFeeToken: processingFeeToken
                 });

@@ -93,7 +93,9 @@ contract BatchExecutorTest is Test, TokenProvider, GasSnapshot {
         subscriptionIndices.push(0);
         vm.prank(processor);
         vm.warp(1641070800 + defaultCooldown);
+        snapStart("execute batch of one");
         IBatchProcessor.Receipt[] memory receipts = batchProcessor.processBatch(subscriptionIndices, address(processor));
+        snapEnd();
 
         uint256 processingFee = receipts[0].processingFee;
 
